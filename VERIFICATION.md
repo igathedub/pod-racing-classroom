@@ -1,0 +1,47 @@
+# Verified release results
+
+## Automated suite
+
+Executed the complete project test suite against the running Docker Desktop and built sandbox image:
+
+```text
+116 passed, 1 warning in 26.42s
+```
+
+The sole warning is upstream Starlette/httpx TestClient deprecation. Ruff returned `All checks passed!`; `node --check web/app.js` exited successfully.
+
+Coverage includes deterministic physics, checkpoint crossings/collisions, BOOST/SHIELD, bot startup/turn deadlines, output floods, real container restrictions and cleanup, submission syntax/size/ownership, teacher authorization, deadline expiry, immutable snapshots, job/reset locking, restart recovery, top-five selection and public secret/source exclusion. Public sandbox status is cached briefly to avoid one Docker probe per student poll; job preflight bypasses that cache.
+
+## Real API acceptance test
+
+`scripts/smoke_tournament.py` used a disposable database and genuinely executed six valid Python input-loop submissions plus one deliberately crashing submission inside Docker. All 21 qualification races ran; the crashing program was excluded from the five finalists. The five-pod collision-enabled final completed with 216 replay frames and an actual finishing winner. Syntax validation, alias ownership, late-submission rejection and public secret exclusion were checked. No fabricated race data was substituted.
+
+## Real browser acceptance test
+
+`scripts/browser_smoke.py` used installed Edge via Playwright and a disposable database. Latest successful run:
+
+```json
+{
+  "passed": true,
+  "elapsed_seconds": 23.3,
+  "students": 6,
+  "finalists": 5,
+  "champion": "Browser Pilot 5",
+  "final_frames": 224,
+  "page_errors": [],
+  "console_errors": [],
+  "restart_persistence": true
+}
+```
+
+This exercised real website submission, syntax-error display, replacement after reload, teacher session start, UI-triggered qualification/final, animated projector replay, winner overlay and 390px layouts without horizontal overflow. It verified that the winner is not announced in the replay selector/footer before playback finishes. The server was then stopped and restarted; champion, leaderboard and exact replay remained intact.
+
+Screenshots were inspected directly. The revised camera includes all five drifting pods and readable labels. Additional agent browser checks covered file upload, code inspection, seed/reset/close, fullscreen, keyboard controls, 320/768px layouts and alias XSS protection.
+
+These short demo runs are not a throughput guarantee for a full class or expensive student algorithms. Preflight the expected class size on the actual classroom network.
+
+## Running classroom
+
+The application was started on port 8765 and read back on localhost and the host's LAN address. Student, teacher and projector routes returned HTTP200. The actual classroom is deliberately empty and waiting, with a two-hour default session, no test submissions/results, an idle worker and a ready restricted Docker sandbox. No `pod-bot-*` containers remained after acceptance runs.
+
+Cross-device access through school Wi-Fi and Windows Firewall still needs a check from a student's device. No firewall or router rules were changed automatically.

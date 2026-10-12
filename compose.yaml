@@ -1,0 +1,44 @@
+services:
+  sandbox:
+    image: pod-classroom-bot:local
+    pull_policy: build
+    build:
+      context: ./sandbox
+    # Trusted build-completion marker, NOT the untrusted bot bootstrap.
+    entrypoint: ["python", "-I", "-c", "print('Sandbox image built.')"]
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+
+  classroom:
+    build:
+      context: .
+    depends_on:
+      sandbox:
+        condition: service_completed_successfully
+    ports:
+      - "${POD_BIND:-127.0.0.1}:${POD_PORT:-8765}:8765"
+    environment:
+      POD_DATA_DIR: /data
+      # Do not inherit a Windows host's npipe:// DOCKER_HOST into Linux.
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - classroom-data:/data
+      - type: bind
+        source: ${POD_DOCKER_SOCKET:-/var/run/docker.sock}
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "python", "scripts/container_entrypoint.py", "--healthcheck"]
+      interval: 10s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  classroom-data:

@@ -1,0 +1,16 @@
+# Allowlist: never send local databases, credentials, artifacts or a host venv.
+**
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!arena/
+!arena/*.py
+!web/
+!web/*.html
+!web/*.js
+!web/*.css
+!examples/
+!examples/*.py
+!scripts/
+!scripts/container_entrypoint.py
+!scripts/deployment_probe.py

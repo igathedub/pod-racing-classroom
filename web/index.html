@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101619">
+  <title>Pod Lab · Classroom arena</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23101619'/%3E%3Cpath d='M8 25V7h9a6 6 0 0 1 0 12H8m16 6 5-18' fill='none' stroke='%23ffb268' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/assets/i18n.js" defer></script>
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="Skip to arena">Skip to arena</a>
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="Pod Lab student arena" data-i18n-aria-label="Pod Lab student arena"><span class="mark" aria-hidden="true">P/</span><span>POD <strong>LAB</strong><small data-i18n="CLASSROOM ARENA">CLASSROOM ARENA</small></span></a>
+    <nav aria-label="Classroom views" data-i18n-aria-label="Classroom views">
+      <a href="/" data-view="student" data-i18n="Student">Student</a>
+      <a href="/teacher" data-view="teacher" data-i18n="Teacher">Teacher</a>
+      <a href="/projector" data-view="projector" data-i18n="Projector">Projector</a>
+    </nav>
+    <label class="language-control" for="language-switch"><span data-i18n="Language">Language</span><select id="language-switch" aria-label="Language" data-i18n-aria-label="Language"><option value="en" lang="en">English</option><option value="de" lang="de">Deutsch</option></select></label>
+    <div class="connection"><span id="connection-dot" class="status-dot"></span><span id="connection-text" data-i18n="Connecting">Connecting</span></div>
+  </header>
+  <main id="main">
+    <section class="session-strip" aria-label="Session status" data-i18n-aria-label="Session status">
+      <div><span class="eyebrow" data-i18n="SUBMISSION WINDOW">SUBMISSION WINDOW</span><strong id="session-status" data-i18n="Connecting to classroom…">Connecting to classroom…</strong></div>
+      <div class="session-clock"><span id="countdown-label" class="eyebrow" data-i18n="Coding session">Coding session</span><time id="countdown">--:--:--</time></div>
+      <div><span class="eyebrow" data-i18n="ENTRIES">ENTRIES</span><strong id="entry-count">—</strong></div>
+      <div class="sandbox-status"><span class="eyebrow" data-i18n="PYTHON SANDBOX">PYTHON SANDBOX</span><strong id="sandbox-label" data-i18n="Checking Docker…">Checking Docker…</strong></div>
+    </section>
+    <div id="connection-error" class="notice error" role="status" hidden></div>
+    <div class="monitor">
+      <section class="race-panel panel" aria-labelledby="race-heading">
+        <div class="panel-heading race-heading">
+          <div><span class="eyebrow" data-i18n="RACE MONITOR">RACE MONITOR</span><h1 id="race-heading" data-i18n="Waiting for the grid">Waiting for the grid</h1></div>
+          <span id="replay-status" class="badge" data-i18n="NO REPLAY">NO REPLAY</span>
+        </div>
+        <div class="race-picker">
+          <label for="replay-select" data-i18n="Race archive">Race archive</label>
+          <select id="replay-select" disabled><option value="" data-i18n="No races yet">No races yet</option></select>
+          <button id="follow-live" class="quiet" type="button" aria-pressed="true" data-i18n="Following live">Following live</button>
+        </div>
+        <div id="race-stage" class="race-stage">
+          <canvas id="race-canvas" aria-label="Race circuit, checkpoints and moving pods" data-i18n-aria-label="Race circuit, checkpoints and moving pods" role="img" data-i18n="Race animation requires a browser with Canvas support. Live standings are available below.">Race animation requires a browser with Canvas support. Live standings are available below.</canvas>
+          <div id="race-empty" class="stage-message"><span class="eyebrow" data-i18n="GRID STANDBY">GRID STANDBY</span><h2 data-i18n="No race has started.">No race has started.</h2><p data-i18n="The teacher opens submissions, runs qualification, then sends the best eligible bots to the final.">The teacher opens submissions, runs qualification, then sends the best eligible bots to the final.</p><span class="stage-line"><span data-i18n-fragment data-i18n="2 LAPS">2 LAPS </span><span>·</span><span data-i18n-fragment data-i18n="UP TO 5 FINALISTS"> UP TO 5 FINALISTS </span><span>·</span><span data-i18n-fragment data-i18n="ONE WINNER"> ONE WINNER</span></span></div>
+          <div id="winner-overlay" class="winner-overlay" hidden><span class="eyebrow" data-i18n="RACE WINNER">RACE WINNER</span><strong id="winner-name"></strong><span id="winner-detail"></span></div>
+          <div class="stage-key" aria-hidden="true"><span class="checkpoint-key"></span><span data-i18n-fragment data-i18n="CHECKPOINT"> CHECKPOINT </span><span class="active-key"></span><span data-i18n-fragment data-i18n="NEXT TARGET"> NEXT TARGET</span></div>
+        </div>
+        <div class="transport" aria-label="Replay controls" data-i18n-aria-label="Replay controls">
+          <button id="play-pause" type="button" disabled aria-label="Play replay" data-i18n-aria-label="Play replay" data-i18n="Play">Play</button>
+          <button id="restart" class="quiet" type="button" disabled aria-label="Restart replay" data-i18n-aria-label="Restart replay">↤ <span data-i18n="Restart">Restart</span></button>
+          <label class="scrub-label" for="scrubber"><span data-i18n-fragment data-i18n="Turn">Turn </span><output id="turn-label">0 / 0</output></label>
+          <input id="scrubber" type="range" min="0" max="0" step="0.01" value="0" disabled aria-label="Replay turn" data-i18n-aria-label="Replay turn">
+          <label class="speed-control" for="speed"><span data-i18n-fragment data-i18n="Speed">Speed</span><select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+          <button id="fullscreen" class="quiet" type="button" data-i18n="Fullscreen">Fullscreen</button>
+        </div>
+        <div class="race-facts"><div><span class="eyebrow" data-i18n="COURSE">COURSE</span><strong id="track-name" data-i18n="Awaiting race">Awaiting race</strong></div><div><span class="eyebrow" data-i18n="FORMAT">FORMAT</span><strong id="race-format">—</strong></div><div><span class="eyebrow" data-i18n="REPLAY TIME">REPLAY TIME</span><strong id="race-time">00:00.0</strong></div></div>
+        <div id="replay-error" class="notice error inset" role="status" hidden></div>
+      </section>
+      <section class="rank-panel panel" aria-labelledby="rank-heading">
+        <div class="panel-heading"><div><span class="eyebrow" id="rank-eyebrow" data-i18n="CLASSROOM RESULTS">CLASSROOM RESULTS</span><h2 id="rank-heading" data-i18n="Qualification standings">Qualification standings</h2></div><span id="rank-count" class="badge" data-i18n="0 ENTRIES">0 ENTRIES</span></div>
+        <div class="ranking-tabs" role="tablist" aria-label="Standings type" data-i18n-aria-label="Standings type"><button id="tab-qualification" role="tab" aria-selected="true" aria-controls="rankings" tabindex="0" type="button" data-i18n="Qualification">Qualification</button><button id="tab-race" role="tab" aria-selected="false" aria-controls="rankings" tabindex="-1" type="button" data-i18n="Race positions">Race positions</button></div>
+        <div id="rankings" role="tabpanel" aria-labelledby="tab-qualification" tabindex="0"><p class="empty-copy" data-i18n="No qualifying results yet. Rankings appear after real races run.">No qualifying results yet. Rankings appear after real races run.</p></div>
+        <div class="rank-footer"><span id="champion-label" data-i18n="No classroom champion yet.">No classroom champion yet.</span><span data-i18n="Ranked by finish, then progress">Ranked by finish, then progress</span></div>
+      </section>
+      <aside class="role-panel panel" id="student-panel" aria-labelledby="student-heading" hidden>
+        <div class="panel-heading"><div><span class="eyebrow" data-i18n="YOUR PILOT">YOUR PILOT</span><h2 id="student-heading" data-i18n="Build a racing bot">Build a racing bot</h2></div><span class="badge">PYTHON 3</span></div>
+        <form id="submission-form">
+          <label for="alias"><span data-i18n-fragment data-i18n="Pilot alias">Pilot alias </span><span data-i18n="1–24 characters">1–24 characters</span></label>
+          <input id="alias" name="alias" maxlength="24" autocomplete="nickname" required placeholder="e.g. Orbit 07" data-i18n-placeholder="e.g. Orbit 07" aria-describedby="alias-hint">
+          <p id="alias-hint" class="field-hint" data-i18n="Letters, numbers, spaces, _ and -. Keep the same alias to update your bot.">Letters, numbers, spaces, _ and -. Keep the same alias to update your bot.</p>
+          <div class="editor-label"><label for="code" data-i18n="Your Python code">Your Python code</label><a href="/api/starter" download="starter.py" data-i18n="Download starter ↗">Download starter ↗</a></div>
+          <textarea id="code" name="code" spellcheck="false" autocomplete="off" autocapitalize="off" required placeholder="# Paste your Python input loop here…" data-i18n-placeholder="# Paste your Python input loop here…" aria-describedby="code-hint"></textarea>
+          <div class="file-row"><label class="file-button" for="code-file"><span data-i18n-fragment data-i18n="Load .py file">Load .py file</span><input id="code-file" type="file" accept=".py,text/x-python,text/plain"></label><span id="code-size">0 / 32 KiB</span></div>
+          <p id="code-hint" class="field-hint" data-i18n="Syntax is checked on submission. Bots run only in the restricted Docker sandbox during races.">Syntax is checked on submission. Bots run only in the restricted Docker sandbox during races.</p>
+          <p id="claim-hint" class="field-hint"></p>
+          <button id="submit-bot" class="primary wide" type="submit" disabled data-i18n="Waiting for session">Waiting for session</button>
+          <p id="submission-message" class="form-message" role="status" aria-live="polite"></p>
+        </form>
+        <details class="help-block"><summary data-i18n="Input / output quick guide">Input / output quick guide</summary><div class="help-content"><p><span data-i18n-fragment data-i18n="Every turn, read">Every turn, read </span><strong><span data-i18n-fragment data-i18n=" two lines">two lines</span></strong><span data-i18n-fragment data-i18n="with"> with </span><code>input()</code>:</p><pre>x y checkpoint_x checkpoint_y distance relative_angle
+opponent_x opponent_y</pre><p data-i18n="Print one command and flush:">Print one command and flush:</p><pre>target_x target_y thrust</pre><p><code>thrust</code><span data-i18n-fragment data-i18n=" is an integer 0–100, or"> is an integer 0–100, or </span><code>BOOST</code><span data-i18n-fragment data-i18n=" once per race. Turn toward the next checkpoint; slow down for tight angles. Keep standard output for commands and send diagnostics to standard error."> once per race. Turn toward the next checkpoint; slow down for tight angles. Keep standard output for commands and send diagnostics to standard error.</span></p><p><span data-i18n-fragment data-i18n="In a final with up to five pods, line two describes your">In a final with up to five pods, line two describes your </span><strong data-i18n="nearest opponent">nearest opponent</strong><span data-i18n-fragment data-i18n=", not one fixed rival. Two laps, checkpoint radius 600, rotation limit 18° per turn, friction 0.85. Final pods can collide; qualification uses a non-colliding reference ghost.">, not one fixed rival. Two laps, checkpoint radius 600, rotation limit 18° per turn, friction 0.85. Final pods can collide; qualification uses a non-colliding reference ghost.</span></p><p><span data-i18n-fragment data-i18n="This is a classroom variant, not an exact official engine.">This is a classroom variant, not an exact official engine. </span><a id="rules-toggle" href="#rules-content" data-i18n="Read classroom rules">Read classroom rules</a></p><div id="rules-content" hidden></div></div></details>
+        <details class="help-block"><summary data-i18n="Replacing a submission safely">Replacing a submission safely</summary><div class="help-content"><p data-i18n="This browser saves a private claim token for each alias. Updating requires that token; another student cannot take your name. If you switch browsers, import your token below. Never share it.">This browser saves a private claim token for each alias. Updating requires that token; another student cannot take your name. If you switch browsers, import your token below. Never share it.</p><label for="claim-token" data-i18n="Claim token for current alias">Claim token for current alias</label><input id="claim-token" type="password" autocomplete="off" placeholder="Paste your existing claim token" data-i18n-placeholder="Paste your existing claim token"><button id="save-claim" class="quiet" type="button" data-i18n="Save token for this alias">Save token for this alias</button><button id="export-claim" class="quiet" type="button" disabled data-i18n="Download private claim token">Download private claim token</button><p id="claim-message" class="field-hint" role="status"></p></div></details>
+      </aside>
+      <aside class="role-panel panel" id="teacher-panel" aria-labelledby="teacher-heading" hidden>
+        <div class="panel-heading"><div><span class="eyebrow" data-i18n="CONTROL ROOM">CONTROL ROOM</span><h2 id="teacher-heading" data-i18n="Teacher console">Teacher console</h2></div><span class="badge" data-i18n="ADMIN">ADMIN</span></div>
+        <form id="admin-auth" class="admin-auth"><label for="admin-token" data-i18n="Teacher secret">Teacher secret</label><div class="input-action"><input id="admin-token" type="password" autocomplete="off" placeholder="From the server console" data-i18n-placeholder="From the server console" required><button type="submit" data-i18n="Use key">Use key</button></div><p class="field-hint" data-i18n="Kept in this tab only. Sent as an admin header, never in a URL.">Kept in this tab only. Sent as an admin header, never in a URL.</p><button id="forget-key" class="text-button" type="button" data-i18n="Forget key">Forget key</button><p id="auth-status" class="field-hint" role="status" data-i18n="Enter the teacher secret to enable controls.">Enter the teacher secret to enable controls.</p></form>
+        <div class="teacher-actions"><span class="eyebrow" data-i18n="01 / SUBMISSION WINDOW">01 / SUBMISSION WINDOW</span><div class="button-pair"><button id="start-session" class="primary" type="button" disabled data-i18n="Open coding session">Open coding session</button><button id="close-session" class="quiet" type="button" disabled data-i18n="Close now">Close now</button></div><span class="eyebrow" data-i18n="02 / TOURNAMENT">02 / TOURNAMENT</span><button id="qualify" type="button" disabled data-i18n="Run qualification · 3 courses">Run qualification · 3 courses</button><button id="run-final" class="primary" type="button" disabled data-i18n="Run final · 0 eligible">Run final · 0 eligible</button><p id="final-hint" class="field-hint" data-i18n="At least 2 eligible pilots are required. The final takes up to 5 from the frozen qualification results.">At least 2 eligible pilots are required. The final takes up to 5 from the frozen qualification results.</p><span class="eyebrow" data-i18n="CLASSROOM SETUP">CLASSROOM SETUP</span><div class="button-pair"><button id="seed-demo" class="quiet" type="button" disabled data-i18n="Seed 6 example bots">Seed 6 example bots</button><button id="reset" class="danger" type="button" disabled data-i18n="Reset classroom">Reset classroom</button></div><p class="field-hint" data-i18n="Examples can be added only to an empty, waiting classroom. They still need real qualification races.">Examples can be added only to an empty, waiting classroom. They still need real qualification races.</p><p id="admin-message" class="form-message" role="status" aria-live="polite"></p></div>
+        <section class="job-panel" aria-labelledby="job-heading"><span class="eyebrow" data-i18n="WORKER PROGRESS">WORKER PROGRESS</span><h3 id="job-heading" data-i18n="No job running">No job running</h3><progress id="job-progress" value="0" max="1" aria-label="Tournament progress" data-i18n-aria-label="Tournament progress"></progress><p id="job-detail" data-i18n="The teacher starts qualification when submissions are ready.">The teacher starts qualification when submissions are ready.</p></section>
+        <details class="help-block"><summary data-i18n="Inspect submitted code">Inspect submitted code</summary><div class="help-content"><label for="inspect-select" data-i18n="Pilot submission">Pilot submission</label><select id="inspect-select" disabled><option value="" data-i18n="No submissions">No submissions</option></select><button id="inspect-code" class="quiet" type="button" disabled data-i18n="Read code with teacher key">Read code with teacher key</button><pre id="inspected-code" class="inspected-code" hidden></pre></div></details>
+      </aside>
+      <aside id="projector-panel" class="projector-info" hidden><span class="eyebrow" data-i18n="CLASSROOM FINAL">CLASSROOM FINAL</span><p data-i18n="Up to five pods race together. Checkpoint numbers show the course order. Pod color, number and alias identify each pilot.">Up to five pods race together. Checkpoint numbers show the course order. Pod color, number and alias identify each pilot.</p><p><span data-i18n-fragment data-i18n="Keyboard:">Keyboard: </span><kbd data-i18n="Space">Space</kbd><span data-i18n-fragment data-i18n=" play / pause,"> play / pause, </span><kbd>←</kbd> / <kbd>→</kbd><span data-i18n-fragment data-i18n=" seek,"> seek, </span><kbd>F</kbd><span data-i18n-fragment data-i18n=" fullscreen."> fullscreen.</span></p></aside>
+    </div>
+    <section id="roster-panel" class="roster-panel" aria-labelledby="roster-heading"><div><span class="eyebrow" data-i18n="PILOT ROSTER">PILOT ROSTER</span><h2 id="roster-heading" data-i18n="Submitted to this classroom">Submitted to this classroom</h2></div><ul id="roster"><li data-i18n="No pilots on the grid yet.">No pilots on the grid yet.</li></ul></section>
+    <footer class="site-footer"><span data-i18n="LOCAL CLASSROOM / NO EXTERNAL SERVICES">LOCAL CLASSROOM / NO EXTERNAL SERVICES</span><span data-i18n="Same courses. Frozen submissions. Real races.">Same courses. Frozen submissions. Real races.</span></footer>
+  </main>
+  <dialog id="reset-dialog" aria-labelledby="reset-title"><form id="reset-form"><span class="eyebrow" data-i18n="DESTRUCTIVE ACTION">DESTRUCTIVE ACTION</span><h2 id="reset-title" data-i18n="Clear the classroom?">Clear the classroom?</h2><p data-i18n="This removes submissions, qualification results and replays, and returns to a waiting session. The teacher secret is kept.">This removes submissions, qualification results and replays, and returns to a waiting session. The teacher secret is kept.</p><label for="reset-confirm" data-i18n="Type RESET to confirm">Type RESET to confirm</label><input id="reset-confirm" autocomplete="off" required pattern="RESET"><div class="dialog-actions"><button id="cancel-reset" class="quiet" type="button" data-i18n="Cancel">Cancel</button><button id="confirm-reset" class="danger" type="submit" data-i18n="Clear all classroom records">Clear all classroom records</button></div></form></dialog>
+</body>
+</html>
