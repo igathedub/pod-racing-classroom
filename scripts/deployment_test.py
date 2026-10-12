@@ -66,6 +66,15 @@ def main() -> None:
         wait_healthy()
         with urlopen(f"http://127.0.0.1:{port}/api/state", timeout=30) as response:
             assert json.load(response)["sandbox"]["available"]
+        with urlopen(f"http://127.0.0.1:{port}/api/rules?lang=de", timeout=30) as response:
+            assert response.headers["Content-Language"] == "de"
+            assert "Programmierkurs" in json.load(response)["title"]
+        with urlopen(f"http://127.0.0.1:{port}/teacher?lang=de", timeout=30) as response:
+            page = response.read().decode("utf-8")
+            assert "language-switch" in page and "/assets/i18n.js" in page
+        with urlopen(f"http://127.0.0.1:{port}/api/starter?lang=de", timeout=30) as response:
+            assert "Lies in jedem Spielzug" in response.read().decode("utf-8")
+        summary["german_interface_and_api"] = "passed"
         version = compose("exec", "-T", "classroom", "docker", "version", "--format", "{{.Client.Version}}/{{.Server.Version}}")
         assert "29.8.2/" in version, version
         summary["docker_client_server"] = version

@@ -1,6 +1,8 @@
 # Verified release results
 
-## Automated suite
+## Original release verification
+
+### Automated suite
 
 Executed the complete project test suite against the running Docker Desktop and built sandbox image:
 
@@ -42,6 +44,20 @@ These short demo runs are not a throughput guarantee for a full class or expensi
 
 ## Running classroom
 
-The application was started on port 8765 and read back on localhost and the host's LAN address. Student, teacher and projector routes returned HTTP200. The actual classroom is deliberately empty and waiting, with a two-hour default session, no test submissions/results, an idle worker and a ready restricted Docker sandbox. No `pod-bot-*` containers remained after acceptance runs.
+At initial startup the application was read back on localhost and the host's LAN address, port 8765. Student, teacher and projector routes returned HTTP200. The classroom was deliberately empty and waiting, with a two-hour default, no test submissions/results, an idle worker and a ready restricted Docker sandbox. No `pod-bot-*` containers remained after acceptance runs.
 
 Cross-device access through school Wi-Fi and Windows Firewall still needs a check from a student's device. No firewall or router rules were changed automatically.
+
+## Bilingual and portable update
+
+- Complete suite: **129 passed, 1 upstream deprecation warning in 26.42s**. Ruff and both JavaScript syntax checks passed. Compose configuration validation passed.
+- English/German Edge-browser acceptance passed on an isolated HTTP server. Tested saved language, `?lang=de/en` links, translated syntax errors, controls, instructions, starter comments and server rules. Code/aliases, private keys and replay selection/pause/position/speed remained unchanged. The reference-engine playback tests used predefined trusted policies, not host execution of submitted code. Desktop and 320/390px screenshots were inspected, with no page errors or horizontal overflow.
+- The full real-Docker website submission/qualification/final browser test passed again: six entries, five finalists, 224 final frames, no page/console errors and persistent results after restart.
+- A fresh authenticated checkout from the private GitHub repository had no host virtualenv, local database or copied keys. Its Docker Compose installation built successfully and ran six-entry qualification and a simultaneous five-pod final, with 216 final frames. Runtime had no uv, Node/npm, pytest, Playwright or Ruff installed. Teacher key, submissions, winner and exact replay survived restart and forced container recreation. Both launch helpers worked. The isolated test completed in 54.31 seconds and removed only its own containers/volume.
+- Exact inspected student containers had no network, host/socket mounts or root privileges; read-only filesystem, dropped capabilities and 64 MiB/half-CPU/32-process limits were enforced. Starting the app without its trusted Docker socket failed closed.
+- The private repository's visibility and main commit were read back through GitHub. The staged-source audit verified that classroom databases, live teacher key and all current ownership tokens were excluded. Source archives also exclude private/generated data.
+- The existing native classroom was updated only after its tournament was idle. Cryptographic before/after checks verified all four existing submissions, the teacher key, stored session/deadline, configuration and every saved replay were preserved. German API and the language switch were read back after reload.
+
+The visible name is now **Coding session / Programmierphase**, with the original 7200-second default retained. A new computer creates its own empty database and teacher key; cloning does not copy the current competition. Docker Compose defaults to localhost, with explicit trusted-LAN configuration documented in English and German.
+
+Portability was exercised as a Linux AMD64 app container on Windows Docker Desktop, not on a second physical computer. Registry images are multi-architecture; macOS, native Linux, ARM64 and rootless hardware were not directly tested. Preflight the demo on the target computer and verify access from a student device.
