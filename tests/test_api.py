@@ -156,6 +156,29 @@ def test_capacity_and_concurrent_claim_protection(api):
     assert submit(client, "Concurrent", claim_token=entry["claim_token"]).status_code == 200
 
 
+def test_student_practice_runs_current_owned_bot_without_mutating_classroom(api):
+    client, app = api
+    open_session(client)
+    saved = submit(client, "Practice pilot", "print('current private practice source')").json()
+
+    response = client.post("/api/practice", json={"alias": saved["alias"], "claim_token": saved["claim_token"]})
+
+    assert response.status_code == 200, response.text
+    replay = response.json()
+    assert replay["kind"] == "practice" and replay["status"] == "finished"
+    assert replay["collisions"] is False and len(replay["entries"]) == 2
+    assert replay["entries"][0]["id"] == saved["id"]
+    assert "current private practice source" not in response.text and saved["claim_token"] not in response.text
+    state = client.get("/api/state").json()
+    assert state["replays"] == [] and state["active_replay_id"] is None
+    assert state["job"]["status"] == "idle" and state["session"]["status"] == "open"
+    assert app.state.store.submissions(private=True)[0]["version"] == 1
+
+    denied = client.post("/api/practice", json={"alias": saved["alias"], "claim_token": "wrong-token"})
+    assert denied.status_code == 409
+    assert "current private practice source" not in denied.text and saved["claim_token"] not in denied.text
+
+
 def test_http_qualification_final_replay_persistence_reset(api):
     client, app = api
     open_session(client)
@@ -264,6 +287,7 @@ def test_starter_rules_and_site_contract(api):
     if (web / "index.html").exists():
         for route in ("/", "/teacher", "/projector"):
             assert client.get(route).status_code == 200
+        assert 'id="test-bot"' in (web / "index.html").read_text(encoding="utf-8")
         for asset in ("app.js", "styles.css"):
             if (web / asset).exists():
                 assert client.get(f"/assets/{asset}").status_code == 200

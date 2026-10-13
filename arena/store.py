@@ -105,6 +105,16 @@ class Store:
                 db.execute("INSERT INTO submissions VALUES (?,?,?,?,?,?,?)", (entry_id, alias, alias.casefold(), code, token, version, time.time()))
             return {"id": entry_id, "alias": alias, "claim_token": token, "version": version}
 
+    def claimed_submission(self, alias, claim_token):
+        """Return a private submission only when its student ownership token matches."""
+        with self.lock, self.connection() as db:
+            row = db.execute("SELECT * FROM submissions WHERE alias_key=?", (alias.casefold(),)).fetchone()
+            if not row or not claim_token or not secrets.compare_digest(
+                row["claim_token"].encode("utf-8"), claim_token.encode("utf-8", errors="replace")
+            ):
+                raise PermissionError("The private claim token does not match this pilot.")
+            return dict(row)
+
     def seed(self, entries):
         with self.lock, self.connection() as db:
             db.execute("BEGIN IMMEDIATE")

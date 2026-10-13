@@ -57,6 +57,7 @@ class Tournament:
         self.tracks_fn = tracks_fn
         self.sandbox_fn = sandbox_fn
         self.worker = None
+        self._practice_active = False
         self._sandbox_lock = threading.Lock()
         self._sandbox_cache = None
         self._sandbox_checked = 0.0
@@ -89,7 +90,7 @@ class Tournament:
         return session
 
     def busy(self):
-        return self.store.get("job", self.store.initial_job())["status"] == "running"
+        return self._practice_active or self.store.get("job", self.store.initial_job())["status"] == "running"
 
     def require_idle(self):
         if self.busy():
@@ -116,6 +117,7 @@ class Tournament:
 
     def submit(self, alias, code, token):
         with self.lock:
+            self.require_idle()
             if self.session()["status"] != "open" or self.store.get("snapshot") is not None:
                 raise CompetitionError(409, "Submissions are closed or frozen.")
             try:
@@ -124,6 +126,49 @@ class Tournament:
                 raise CompetitionError(409, str(exc)) from exc
             except OverflowError as exc:
                 raise CompetitionError(409, str(exc)) from exc
+
+    def practice(self, alias, claim_token):
+        """Run a student's saved bot against the reference ghost without publishing it."""
+        with self.lock:
+            self.require_idle()
+            if self.session()["status"] != "open" or self.store.get("snapshot") is not None:
+                raise CompetitionError(409, "Submissions are closed or frozen.")
+            if not self.sandbox_status(refresh=True)["available"]:
+                raise CompetitionError(503, "Docker sandbox unavailable; no code was executed and submissions were not frozen.")
+            try:
+                entry = self.store.claimed_submission(alias, claim_token)
+            except PermissionError as exc:
+                raise CompetitionError(409, str(exc)) from exc
+            self._practice_active = True
+        try:
+            return self._practice_race({key: entry[key] for key in ("id", "alias", "code", "version")})
+        finally:
+            with self.lock:
+                self._practice_active = False
+
+    def _practice_race(self, entry):
+        track = self._tracks()[0]
+        reference = {"id": str(uuid.uuid4()), "alias": "Reference ghost", "code": "", "kind": "reference"}
+        race_fn = self.race_fn
+        if race_fn is None:
+            from .engine import run_race
+            race_fn = run_race
+        try:
+            result = race_fn([entry, reference], track, laps=2, max_turns=700, collisions=False)
+        except Exception as exc:
+            raise CompetitionError(503, "Practice run interrupted. Check the Docker sandbox and try again.") from exc
+        raw_frames = result.get("frames", [])
+        if len(raw_frames) > 701 or any(len(frame.get("pods", [])) > 5 for frame in raw_frames):
+            raise CompetitionError(503, "Practice run interrupted. Check the Docker sandbox and try again.")
+        result_fields = ("id", "alias", "place", "finished", "disqualified", "turns", "passed", "distance_to_checkpoint")
+        results = [{**{key: row[key] for key in result_fields if key in row}, "error": public_error(row.get("error"))}
+                   for row in result.get("results", [])]
+        winner = next((row for row in results if row.get("id") == result.get("winner_id") and row.get("finished") and not row.get("disqualified")), None)
+        return {"id": str(uuid.uuid4()), "kind": "practice", "title": f"Practice · {entry['alias']}", "track": track,
+                "laps": 2, "max_turns": 700, "collisions": False, "status": "finished",
+                "winner_id": winner["id"] if winner else None,
+                "entries": [{"id": item["id"], "alias": item["alias"]} for item in (entry, reference)],
+                "frames": [self._safe_frame(frame) for frame in raw_frames], "results": results}
 
     def start_qualification(self):
         with self.lock:
