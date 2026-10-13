@@ -12,6 +12,7 @@ from test_api import api, open_session  # noqa: F401 -- imports the isolated pyt
 def test_open_session_student_actions_are_not_clipped(api, width, height, language):
     client, _ = api
     open_session(client)
+    assert client.post("/api/submissions", json={"alias": "Existing pilot", "code": "print(1)"}).status_code == 200
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": width, "height": height})
@@ -28,6 +29,10 @@ def test_open_session_student_actions_are_not_clipped(api, width, height, langua
         page.route("**/*", serve)
         page.goto(f"http://classroom.test/?lang={language}")
         page.wait_for_function("!document.getElementById('submit-bot').disabled")
+        label = "Deinen Bot abgeben" if language == "de" else "Submit your bot"
+        assert page.locator("#submit-bot").inner_text() == label
+        page.locator("#alias").fill("Existing pilot")
+        assert page.locator("#submit-bot").inner_text() == label
         for identifier in ("submit-bot", "test-bot"):
             button = page.locator(f"#{identifier}")
             box = button.bounding_box()

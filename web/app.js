@@ -87,8 +87,7 @@
     const eligible = (app.state?.leaderboard || []).filter(row => !row.disqualified);
     const finalCount = Math.min(5, eligible.length);
     $('submit-bot').disabled = !isOpen() || app.submitBusy;
-    const existing = app.state?.submissions?.some(entry => entry.alias.toLowerCase() === $('alias').value.trim().toLowerCase());
-    text('submit-bot', app.submitBusy ? t('Submitting…') : !isOpen() ? (app.online ? t('Submissions are closed') : t('Connecting to classroom…')) : existing ? t('Update your bot') : t('Submit your bot'));
+    text('submit-bot', app.submitBusy ? t('Submitting…') : !isOpen() ? (app.online ? t('Submissions are closed') : t('Connecting to classroom…')) : t('Submit your bot'));
     $('test-bot').disabled = !isOpen() || app.submitBusy || app.practiceBusy || !app.state?.sandbox?.available;
     text('test-bot', app.practiceBusy ? t('Testing…') : t('Test this code'));
     $('start-session').disabled = !adminReady || !['waiting', 'open', 'closed'].includes(session) || Boolean(app.state?.leaderboard?.length);
