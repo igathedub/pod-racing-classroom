@@ -15,7 +15,7 @@
   const TURN_RATE = 10; // Replay presentation speed; not engine wall-clock time.
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const defaultBounds = () => ({ minX: -700, minY: -700, maxX: 16700, maxY: 9700 });
-  const app = { state: null, online: false, stateBusy: false, adminBusy: false, submitBusy: false, clockOffset: 0, follow: true, ranking: view === 'projector' ? 'race' : 'qualification', replayId: null, replay: null, replayBusy: false, lastReplayFetch: 0, position: 0, playing: !reducedMotion, speed: 1, finishTurns: new Map(), processedFrames: 0, lastRankingPaint: 0, lastAnimation: 0, bounds: defaultBounds() };
+  const app = { state: null, online: false, stateBusy: false, adminBusy: false, submitBusy: false, practiceBusy: false, practiceReplay: null, localReplay: false, clockOffset: 0, follow: true, ranking: view === 'projector' ? 'race' : 'qualification', replayId: null, replay: null, replayBusy: false, lastReplayFetch: 0, position: 0, playing: !reducedMotion, speed: 1, finishTurns: new Map(), processedFrames: 0, lastRankingPaint: 0, lastAnimation: 0, bounds: defaultBounds() };
   const text = (id, value) => { localizedFields.set(id, value); $(id).textContent = String(value ?? ''); };
   const message = (id, value, type = '') => { text(id, value); $(id).className = `form-message ${type}`.trim(); };
   const notice = (id, value) => { text(id, value); $(id).hidden = !value; };
@@ -89,6 +89,8 @@
     $('submit-bot').disabled = !isOpen() || app.submitBusy;
     const existing = app.state?.submissions?.some(entry => entry.alias.toLowerCase() === $('alias').value.trim().toLowerCase());
     text('submit-bot', app.submitBusy ? t('Submitting…') : !isOpen() ? (app.online ? t('Submissions are closed') : t('Connecting to classroom…')) : existing ? t('Update your bot') : t('Submit your bot'));
+    $('test-bot').disabled = !isOpen() || app.submitBusy || app.practiceBusy || !app.state?.sandbox?.available;
+    text('test-bot', app.practiceBusy ? t('Testing…') : t('Test this code'));
     $('start-session').disabled = !adminReady || !['waiting', 'open', 'closed'].includes(session) || Boolean(app.state?.leaderboard?.length);
     $('close-session').disabled = !adminReady || session !== 'open';
     $('qualify').disabled = !adminReady || !app.state?.submissions?.length || !app.state?.sandbox?.available || ['qualified', 'finished', 'final'].includes(session);
@@ -143,13 +145,13 @@
     updateChampionLabel();
     // Projected playback must not reveal the winner before the race unfolds.
     syncSelect('replay-select', state.replays || [], t('No races yet'), replay => view === 'teacher' && replay.winner_alias ? t('{title} · Winner: {alias}', { title: replayTitle(replay), alias: replay.winner_alias }) : replayTitle(replay));
-    if (app.replay) text('race-heading', replayTitle(state.replays?.find(item => item.id === app.replayId)) || app.replay.track.name || t('Race replay'));
+    if (app.replay) text('race-heading', replayTitle(app.localReplay ? app.replay : state.replays?.find(item => item.id === app.replayId)) || app.replay.track.name || t('Race replay'));
     if (app.follow) {
       const target = state.active_replay_id || (!app.replayId ? state.replays?.at(-1)?.id : app.replayId);
       if (target && target !== app.replayId) selectReplay(target);
     }
     if (app.replayId && (state.replays || []).some(replay => replay.id === app.replayId)) $('replay-select').value = app.replayId;
-    if (!state.replays?.length && !state.active_replay_id && app.replayId) clearReplay();
+    if (!state.replays?.length && !state.active_replay_id && app.replayId && !app.localReplay) clearReplay();
     renderRoster(); updateClock(); updateClaimHint(); renderRankings();
     if (!app.replay && !app.replayId) renderEmptyState();
   }
@@ -182,7 +184,7 @@
     text('follow-live', follow ? t('Following live') : t('Follow live'));
   }
   function clearReplay() {
-    app.replayId = null; app.replay = null; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0;
+    app.replayId = null; app.replay = null; app.practiceReplay = null; app.localReplay = false; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0;
     app.bounds = defaultBounds(); updateChampionLabel();
     text('race-heading', t('Waiting for the grid')); text('replay-status', t('NO REPLAY')); $('replay-status').classList.remove('live');
     text('track-name', t('Awaiting race')); text('race-format', '—');
@@ -191,7 +193,7 @@
   }
   function selectReplay(id) {
     if (!id || id === app.replayId) return;
-    app.replayId = id; app.replay = null; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0;
+    app.replayId = id; app.replay = null; app.practiceReplay = null; app.localReplay = false; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0;
     app.bounds = defaultBounds(); updateChampionLabel();
     app.playing = !reducedMotion; app.lastRankingPaint = 0;
     $('race-empty').hidden = false; $('race-empty').querySelector('h2').textContent = t('Loading race…'); $('race-empty').querySelector('p').textContent = t('Fetching the recorded circuit and actual pod positions.');
@@ -207,7 +209,8 @@
     const requestLanguage = window.PodLocale.language;
     app.replayBusy = true; app.lastReplayFetch = Date.now();
     try {
-      const replay = await api(`/api/replays/${encodeURIComponent(id)}`);
+      const replay = app.localReplay ? app.practiceReplay : await api(`/api/replays/${encodeURIComponent(id)}`);
+      if (!replay) throw localizedError(t('The replay could not be loaded. Choose a race or wait for the next server update.'));
       if (id !== app.replayId || requestLanguage !== window.PodLocale.language) return;
       if (!Array.isArray(replay.frames) || !Array.isArray(replay.entries) || !Array.isArray(replay.track?.checkpoints)) throw localizedError(t('The replay does not contain a valid circuit and frames.'));
       const firstLoad = !app.replay;
@@ -228,7 +231,7 @@
       app.position = Math.min(app.position, Math.max(0, incomingFrames - 1));
       $('race-empty').hidden = incomingFrames > 0;
       if (!incomingFrames) { $('race-empty').querySelector('h2').textContent = t('Race is preparing…'); $('race-empty').querySelector('p').textContent = t('The worker has not published its first frame yet.'); }
-      text('race-heading', replayTitle(app.state?.replays?.find(item => item.id === id)) || replay.track.name || t('Race replay'));
+      text('race-heading', replayTitle(app.localReplay ? replay : app.state?.replays?.find(item => item.id === id)) || replay.track.name || t('Race replay'));
       text('replay-status', ({ running: t('LIVE RACE'), finished: t('RECORDED'), interrupted: t('INTERRUPTED'), failed: t('RACE FAILED') }[replay.status] || t('REPLAY'))); $('replay-status').classList.toggle('live', replay.status === 'running');
       text('track-name', replay.track.name || replay.track.id || t('Classroom course'));
       text('race-format', t('{laps} laps · {pods} pods{contact}', { laps: replay.laps, pods: replay.entries.length, contact: t(replay.collisions ? ' · contact' : ' · ghosts') }));
@@ -461,12 +464,12 @@
     catch { message('submission-message', t('The selected file could not be read.'), 'error'); }
     event.target.value = '';
   });
-  $('submission-form').addEventListener('submit', async event => {
-    event.preventDefault(); if (app.submitBusy) return;
-    if (!isOpen()) { message('submission-message', t('The submission window is closed. Ask the teacher to open it.'), 'error'); return; }
+  async function saveSubmission() {
+    if (app.submitBusy) return false;
+    if (!isOpen()) { message('submission-message', t('The submission window is closed. Ask the teacher to open it.'), 'error'); return false; }
     const alias = $('alias').value.trim(), code = $('code').value;
-    if (!/^[\p{L}\p{N} _-]{1,24}$/u.test(alias)) { message('submission-message', t('Use 1–24 letters, numbers, spaces, _ or - for your alias.'), 'error'); $('alias').focus(); return; }
-    if (!code.trim() || sourceSize() > 32768) { message('submission-message', t('Paste Python code no larger than 32 KiB.'), 'error'); $('code').focus(); return; }
+    if (!/^[\p{L}\p{N} _-]{1,24}$/u.test(alias)) { message('submission-message', t('Use 1–24 letters, numbers, spaces, _ or - for your alias.'), 'error'); $('alias').focus(); return false; }
+    if (!code.trim() || sourceSize() > 32768) { message('submission-message', t('Paste Python code no larger than 32 KiB.'), 'error'); $('code').focus(); return false; }
     app.submitBusy = true; updateControls(); message('submission-message', t('Checking Python syntax and saving…'));
     try {
       const claim = claimFor(alias); const payload = { alias, code }; if (claim) payload.claim_token = claim;
@@ -480,8 +483,23 @@
       if (!stored) { $('export-claim').disabled = false; $('export-claim').dataset.unsaved = result.claim_token; }
       await pollState(); updateClaimHint();
       if (!stored) $('export-claim').disabled = false;
-    } catch (error) { message('submission-message', error.localized || error.message, 'error'); }
+      return true;
+    } catch (error) { message('submission-message', error.localized || error.message, 'error'); return false; }
     finally { app.submitBusy = false; updateControls(); }
+  }
+  $('submission-form').addEventListener('submit', async event => { event.preventDefault(); await saveSubmission(); });
+  $('test-bot').addEventListener('click', async () => {
+    if (app.practiceBusy || !await saveSubmission()) return;
+    const alias = $('alias').value.trim(), claim_token = claimFor(alias);
+    if (!claim_token) { message('submission-message', t('Your private claim token is unavailable. Save your bot once, then try again.'), 'error'); return; }
+    app.practiceBusy = true; updateControls(); message('submission-message', t('Testing your bot in the sandbox…'));
+    try {
+      const replay = await api('/api/practice', { method: 'POST', body: { alias, claim_token } });
+      if (!Array.isArray(replay.frames) || !Array.isArray(replay.entries)) throw localizedError(t('The server returned an unreadable response.'));
+      app.practiceReplay = replay; app.localReplay = true; app.replayId = replay.id; app.replay = null; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0; app.bounds = defaultBounds();
+      setFollowing(false); refreshReplay(true); message('submission-message', t('Practice replay ready.'), 'success');
+    } catch (error) { message('submission-message', error.localized || error.message, 'error'); }
+    finally { app.practiceBusy = false; updateControls(); }
   });
   $('save-claim').addEventListener('click', () => {
     const alias = $('alias').value.trim(), token = $('claim-token').value.trim();

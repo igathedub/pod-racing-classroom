@@ -14,3 +14,13 @@ body[data-view=projector] .monitor{grid-template-columns:minmax(0,1fr) 330px;gri
 [data-i18n-fragment]{float:none!important;font:inherit!important;color:inherit!important}
 .site-header{flex-wrap:wrap}.site-header nav{flex-wrap:wrap}.session-strip>*{min-width:0}.race-picker select{min-width:0}.rank-footer span{overflow-wrap:anywhere}.stage-line{white-space:normal}
 @media(max-width:520px){.language-control{margin-left:auto}.language-control>span{display:none}.site-header .connection{margin-left:0}.site-header nav a{padding-inline:5px}.session-strip,body[data-view=projector] .session-strip{grid-template-columns:minmax(0,1fr) 140px}.button-pair{flex-wrap:wrap}.button-pair>*{min-width:0}.transport button{overflow-wrap:anywhere}}
+
+/* Student workbench: writing code takes priority; races remain beside it for practice feedback. */
+body[data-view=student] .monitor{grid-template-columns:minmax(440px,1.35fr) minmax(360px,1fr);grid-template-areas:"role race" "role rank";align-items:start}
+body[data-view=student] #student-panel{grid-area:role;align-self:stretch}
+body[data-view=student] #student-panel form{display:flex;flex-direction:column;height:100%}
+body[data-view=student] #student-panel #code{flex:1;min-height:58vh;height:620px;font:14px/1.5 "Consolas","Liberation Mono",monospace;tab-size:4}
+.student-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}.student-actions button{width:100%}
+@media(max-width:1150px){body[data-view=student] .monitor{grid-template-columns:minmax(360px,1.2fr) minmax(300px,.9fr)}}
+@media(max-width:900px){body[data-view=student] .monitor{grid-template-columns:1fr;grid-template-areas:"role" "race" "rank"}body[data-view=student] #student-panel #code{min-height:440px;height:55vh}}
+@media(max-width:520px){.student-actions{grid-template-columns:1fr}}

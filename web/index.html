@@ -68,14 +68,12 @@
         <div class="panel-heading"><div><span class="eyebrow" data-i18n="YOUR PILOT">YOUR PILOT</span><h2 id="student-heading" data-i18n="Build a racing bot">Build a racing bot</h2></div><span class="badge">PYTHON 3</span></div>
         <form id="submission-form">
           <label for="alias"><span data-i18n-fragment data-i18n="Pilot alias">Pilot alias </span><span data-i18n="1–24 characters">1–24 characters</span></label>
-          <input id="alias" name="alias" maxlength="24" autocomplete="nickname" required placeholder="e.g. Orbit 07" data-i18n-placeholder="e.g. Orbit 07" aria-describedby="alias-hint">
-          <p id="alias-hint" class="field-hint" data-i18n="Letters, numbers, spaces, _ and -. Keep the same alias to update your bot.">Letters, numbers, spaces, _ and -. Keep the same alias to update your bot.</p>
+          <input id="alias" name="alias" maxlength="24" autocomplete="nickname" required placeholder="e.g. Orbit 07" data-i18n-placeholder="e.g. Orbit 07">
           <div class="editor-label"><label for="code" data-i18n="Your Python code">Your Python code</label><a href="/api/starter" download="starter.py" data-i18n="Download starter ↗">Download starter ↗</a></div>
-          <textarea id="code" name="code" spellcheck="false" autocomplete="off" autocapitalize="off" required placeholder="# Paste your Python input loop here…" data-i18n-placeholder="# Paste your Python input loop here…" aria-describedby="code-hint"></textarea>
+          <textarea id="code" name="code" spellcheck="false" autocomplete="off" autocapitalize="off" required placeholder="# Paste your Python input loop here…" data-i18n-placeholder="# Paste your Python input loop here…"></textarea>
           <div class="file-row"><label class="file-button" for="code-file"><span data-i18n-fragment data-i18n="Load .py file">Load .py file</span><input id="code-file" type="file" accept=".py,text/x-python,text/plain"></label><span id="code-size">0 / 32 KiB</span></div>
-          <p id="code-hint" class="field-hint" data-i18n="Syntax is checked on submission. Bots run only in the restricted Docker sandbox during races.">Syntax is checked on submission. Bots run only in the restricted Docker sandbox during races.</p>
           <p id="claim-hint" class="field-hint"></p>
-          <button id="submit-bot" class="primary wide" type="submit" disabled data-i18n="Waiting for session">Waiting for session</button>
+          <div class="student-actions"><button id="submit-bot" class="primary" type="submit" disabled data-i18n="Waiting for session">Waiting for session</button><button id="test-bot" type="button" disabled data-i18n="Test this code">Test this code</button></div>
           <p id="submission-message" class="form-message" role="status" aria-live="polite"></p>
         </form>
         <details class="help-block"><summary data-i18n="Input / output quick guide">Input / output quick guide</summary><div class="help-content"><p><span data-i18n-fragment data-i18n="Every turn, read">Every turn, read </span><strong><span data-i18n-fragment data-i18n=" two lines">two lines</span></strong><span data-i18n-fragment data-i18n="with"> with </span><code>input()</code>:</p><pre>x y checkpoint_x checkpoint_y distance relative_angle

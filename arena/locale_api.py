@@ -25,6 +25,8 @@ MESSAGES = {
     "Competition is frozen. Reset before starting a new session.": "Die Einreichungen für den Wettbewerb sind eingefroren. Setze den Kurs vor einer neuen Programmierphase zurück.",
     "Competition is already frozen.": "Die Einreichungen für den Wettbewerb sind bereits eingefroren.",
     "Submissions are closed or frozen.": "Die Einreichungsphase ist geschlossen oder die Einreichungen sind eingefroren.",
+    "The private claim token does not match this pilot.": "Der private Schlüssel stimmt nicht mit diesem Bot überein.",
+    "Practice run interrupted. Check the Docker sandbox and try again.": "Das Testrennen wurde unterbrochen. Prüfe die Docker-Sandbox und versuche es erneut.",
     "This alias is already claimed. Use its original claim token to update it.": "Dieser Alias ist bereits vergeben. Zum Aktualisieren benötigst du seinen ursprünglichen privaten Schlüssel.",
     "The classroom already has 60 submissions.": "Für diesen Kurs gibt es bereits 60 Einreichungen.",
     "Qualifications have already been started. Reset for a new competition.": "Die Qualifikation wurde bereits gestartet. Setze den Kurs für einen neuen Wettbewerb zurück.",

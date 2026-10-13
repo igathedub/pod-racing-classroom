@@ -77,6 +77,11 @@ class Reset(JSONModel):
     confirm: str
 
 
+class Practice(JSONModel):
+    alias: str = Field(min_length=1, max_length=24)
+    claim_token: str = Field(min_length=1, max_length=128)
+
+
 class BoundedJSONMiddleware:
     """Bound all HTTP mutation bodies, including chunked requests."""
     def __init__(self, app):
@@ -159,6 +164,10 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
     @application.post("/api/submissions")
     def submit(body: Submission):
         return tournament.submit(body.alias, body.code, body.claim_token)
+
+    @application.post("/api/practice")
+    def practice(body: Practice, request: Request):
+        return localize_replay(tournament.practice(body.alias, body.claim_token), language_for(request))
 
     @application.get("/api/starter")
     def starter(request: Request):
