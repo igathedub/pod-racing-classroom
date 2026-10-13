@@ -17,10 +17,40 @@ body[data-view=projector] .monitor{grid-template-columns:minmax(0,1fr) 330px;gri
 
 /* Student workbench: writing code takes priority; races remain beside it for practice feedback. */
 body[data-view=student] .monitor{grid-template-columns:minmax(440px,1.35fr) minmax(360px,1fr);grid-template-areas:"role race" "role rank";align-items:start}
-body[data-view=student] #student-panel{grid-area:role;align-self:stretch}
+body[data-view=student] #student-panel{grid-area:role;align-self:start}
 body[data-view=student] #student-panel form{display:flex;flex-direction:column;height:auto}
 body[data-view=student] #student-panel #code{flex:1;min-height:58vh;height:620px;font:14px/1.5 "Consolas","Liberation Mono",monospace;tab-size:4}
 .student-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.student-actions button{width:100%}
 @media(max-width:1150px){body[data-view=student] .monitor{grid-template-columns:minmax(360px,1.2fr) minmax(300px,.9fr)}}
 @media(max-width:900px){body[data-view=student] .monitor{grid-template-columns:1fr;grid-template-areas:"role" "race" "rank"}body[data-view=student] #student-panel #code{min-height:440px;height:55vh}}
 @media(max-width:520px){.student-actions{grid-template-columns:1fr}}
+
+/* Role-first hierarchy and progressive disclosure, without changing race behavior. */
+main{padding-bottom:24px}
+.site-footer,.panel-heading .eyebrow,.stage-line{display:none}
+body[data-view=teacher] .monitor{grid-template-columns:minmax(340px,420px) minmax(0,1fr);grid-template-areas:"role race" "role rank"}
+.teacher-actions{gap:10px}.teacher-actions h3{margin:0;font-size:14px;color:var(--muted)}
+.teacher-actions h3:not(:first-child){margin-top:12px}
+#follow-live{white-space:normal;flex-shrink:0;max-width:55%}
+#follow-live[aria-pressed=true]{color:var(--green);border-color:var(--green);background:#17352a}
+#follow-live[aria-pressed=false]{color:var(--muted);background:transparent}
+body:not([data-view=projector])[data-has-replay=false] .race-stage{min-height:160px;aspect-ratio:auto}
+body:not([data-view=projector])[data-has-replay=false] .stage-message{padding:20px}
+body:not([data-view=projector])[data-has-replay=false] .stage-message .eyebrow{display:none}
+body:not([data-view=projector])[data-has-replay=false] .stage-message h2{font-size:23px;letter-spacing:0;margin:0 0 10px}
+body[data-has-replay=false] .transport,body[data-has-replay=false] .race-facts,body[data-has-replay=false] .stage-key{display:none}
+.roster-panel{display:block;margin:20px 0 0;padding:0;border:1px solid var(--line);border-radius:var(--radius)}
+.roster-panel summary .badge{margin-left:8px}
+#roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:8px;padding:0 16px 16px;max-height:260px;overflow:auto}
+#roster li{padding:7px 9px;min-width:0}
+#teacher-panel #roster{grid-template-columns:1fr;scrollbar-gutter:stable}
+#teacher-panel #roster li{display:flex;justify-content:space-between;gap:8px}
+#roster-scroll-hint{margin:0;padding:0 16px 10px;color:var(--muted);font-size:12px}
+#rankings{max-height:560px;overflow:auto;scrollbar-gutter:stable}
+#rankings thead th{position:sticky;top:0;background:var(--panel);z-index:1}
+body[data-view=projector] .session-strip{min-height:68px;grid-template-columns:1fr 90px 210px;padding:12px 0}
+body[data-view=projector] .session-clock,body[data-view=projector] .race-facts,body[data-view=projector] .session-strip>div:first-child .eyebrow{display:none}
+#teacher-panel .roster-panel{margin:0;border:0;border-top:1px solid var(--line);border-radius:0}
+#teacher-access .admin-auth{border:0;padding-top:0}
+.projector-info details summary{padding:8px 0}
+@media(max-width:900px){body[data-view=teacher] .monitor{grid-template-columns:1fr;grid-template-areas:"role" "race" "rank"}}

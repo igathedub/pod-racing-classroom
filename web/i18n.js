@@ -24,6 +24,18 @@
   "No races yet": "Noch keine Rennen",
   "Following live": "Live-Rennen folgen",
   "Follow live": "Live-Rennen verfolgen",
+  "Auto-follow: ON": "Automatisch folgen: AN",
+  "Teacher access": "Lehrkraft-Zugang",
+  "Playback help": "Hilfe zur Wiedergabe",
+  "Examples and reset": "Beispiele und Zurücksetzen",
+  "Submitted bots": "Abgegebene Bots",
+  "Scroll the list to see all bots.": "Scrolle die Liste, um alle Bots zu sehen.",
+  "Tournament": "Turnier",
+  "Test your code to watch your bot race here.": "Teste deinen Code, um deinen Bot hier fahren zu sehen.",
+  "Start qualification when the submissions are ready.": "Starte die Qualifikation, sobald die Abgaben bereit sind.",
+  "The next classroom race will appear here.": "Hier erscheint das nächste Klassenrennen.",
+  "Auto-follow: OFF": "Automatisch folgen: AUS",
+  "Automatically switch to the next classroom race.": "Automatisch zum nächsten Klassenrennen wechseln.",
   "Race circuit, checkpoints and moving pods": "Rennstrecke, Kontrollpunkte und fahrende Pods",
   "Race animation requires a browser with Canvas support. Live standings are available below.": "Für die Rennanimation muss dein Browser Canvas unterstützen. Die aktuellen Platzierungen stehen darunter.",
   "GRID STANDBY": "STARTERFELD WARTET",
@@ -385,7 +397,7 @@
         value = node.dataset.i18nBefore + value.trim() + node.dataset.i18nAfter;
       }
       node.textContent = value; });
-    for (const attribute of ['aria-label', 'placeholder']) document.querySelectorAll(`[data-i18n-${attribute}]`).forEach(node => node.setAttribute(attribute, String(t(node.getAttribute(`data-i18n-${attribute}`)))));
+    for (const attribute of ['aria-label', 'placeholder', 'title']) document.querySelectorAll(`[data-i18n-${attribute}]`).forEach(node => node.setAttribute(attribute, String(t(node.getAttribute(`data-i18n-${attribute}`)))));
     document.getElementById('language-switch').value = language;
     document.querySelectorAll('nav [data-view], .wordmark').forEach(link => { const url = new URL(link.href); url.searchParams.set('lang', language); link.href = url.pathname + url.search; });
     const starter = document.querySelector('a[download="starter.py"]');
