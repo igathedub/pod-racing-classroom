@@ -9,6 +9,10 @@
   $('student-panel').hidden = view !== 'student';
   $('teacher-panel').hidden = view !== 'teacher';
   $('projector-panel').hidden = view !== 'projector';
+  $('roster-panel').hidden = view === 'projector';
+  $('roster-panel').open = view === 'teacher';
+  if (view === 'teacher') $('teacher-panel').insertBefore($('roster-panel'), $('code-inspection'));
+  if (view !== 'projector') document.querySelector('.monitor').prepend($(view === 'student' ? 'student-panel' : 'teacher-panel'));
   function updateTitle() { document.title = `Pod Lab · ${t(view === 'student' ? 'Student arena' : view === 'teacher' ? 'Teacher console' : 'Race projector')}`; }
   updateTitle();
   const palette = ['#ffb268', '#89ddba', '#86bfff', '#e9a5d2', '#e4dd81', '#b5b9c2'];
@@ -115,6 +119,8 @@
   }
   function renderRoster() {
     const entries = app.state?.submissions || [];
+    text('roster-count', entries.length);
+    $('roster-scroll-hint').hidden = entries.length <= 6;
     const signature = window.PodLocale.language + JSON.stringify(entries.map(entry => [entry.id, entry.alias, entry.version]));
     if ($('roster').dataset.signature === signature) return;
     $('roster').dataset.signature = signature;
@@ -152,12 +158,21 @@
     if (app.replayId && (state.replays || []).some(replay => replay.id === app.replayId)) $('replay-select').value = app.replayId;
     if (!state.replays?.length && !state.active_replay_id && app.replayId && !app.localReplay) clearReplay();
     renderRoster(); updateClock(); updateClaimHint(); renderRankings();
+    updateViewFocus();
     if (!app.replay && !app.replayId) renderEmptyState();
   }
   function renderEmptyState() {
     $('race-empty').hidden = false;
     $('race-empty').querySelector('h2').textContent = app.online ? t('No race has started.') : t('Arena connection unavailable.');
-    $('race-empty').querySelector('p').textContent = app.online ? app.state?.sandbox?.available ? t('The teacher opens submissions, runs qualification, then sends the best eligible bots to the final.') : t('Submissions can be collected when the session is open, but racing is blocked until the teacher brings the Docker sandbox online.') : t('Reconnecting to the local classroom server. No results are being simulated.');
+    $('race-empty').querySelector('p').textContent = app.online ? app.state?.sandbox?.available ? t(view === 'student' ? 'Test your code to watch your bot race here.' : view === 'teacher' ? 'Start qualification when the submissions are ready.' : 'The next classroom race will appear here.') : t('Submissions can be collected when the session is open, but racing is blocked until the teacher brings the Docker sandbox online.') : t('Reconnecting to the local classroom server. No results are being simulated.');
+  }
+  function updateViewFocus() {
+    const hasReplay = Boolean(app.replay?.frames?.length);
+    document.body.dataset.hasReplay = String(hasReplay);
+    document.querySelector('.rank-panel').hidden = !hasReplay && !app.state?.leaderboard?.length;
+    document.querySelector('.job-panel').hidden = !app.state?.job || app.state.job.status === 'idle';
+    document.querySelector('.sandbox-status').hidden = view !== 'teacher' && Boolean(app.state?.sandbox?.available);
+    $('final-hint').hidden = app.state?.session?.status !== 'qualified';
   }
   async function pollState() {
     if (app.stateBusy) return;
@@ -180,7 +195,7 @@
   function setFollowing(follow) {
     app.follow = follow;
     $('follow-live').setAttribute('aria-pressed', String(follow));
-    text('follow-live', follow ? t('Following live') : t('Follow live'));
+    text('follow-live', follow ? t('Auto-follow: ON') : t('Auto-follow: OFF'));
   }
   function clearReplay() {
     app.replayId = null; app.replay = null; app.practiceReplay = null; app.localReplay = false; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0;
@@ -189,6 +204,7 @@
     text('track-name', t('Awaiting race')); text('race-format', '—');
     $('winner-overlay').hidden = true; $('scrubber').disabled = true; $('play-pause').disabled = true; $('restart').disabled = true;
     text('turn-label', '0 / 0'); text('race-time', '00:00.0'); notice('replay-error', ''); renderEmptyState(); renderRankings();
+    updateViewFocus();
   }
   function selectReplay(id) {
     if (!id || id === app.replayId) return;
@@ -199,6 +215,7 @@
     $('winner-overlay').hidden = true;
     text('replay-status', t('LOADING')); text('race-heading', replayTitle(app.state?.replays?.find(replay => replay.id === id)) || t('Race replay'));
     $('scrubber').disabled = true; $('play-pause').disabled = true; $('restart').disabled = true;
+    updateViewFocus();
     refreshReplay(true);
   }
   async function refreshReplay(force = false) {
@@ -226,6 +243,7 @@
       }
       app.processedFrames = incomingFrames;
       app.replay = replay;
+      updateViewFocus();
       if (firstLoad && replay.status === 'running' && !reducedMotion) app.position = Math.max(0, incomingFrames - 12);
       app.position = Math.min(app.position, Math.max(0, incomingFrames - 1));
       $('race-empty').hidden = incomingFrames > 0;
@@ -496,7 +514,8 @@
       const replay = await api('/api/practice', { method: 'POST', body: { alias, claim_token } });
       if (!Array.isArray(replay.frames) || !Array.isArray(replay.entries)) throw localizedError(t('The server returned an unreadable response.'));
       app.practiceReplay = replay; app.localReplay = true; app.replayId = replay.id; app.replay = null; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0; app.bounds = defaultBounds();
-      setFollowing(false); refreshReplay(true); message('submission-message', t('Practice replay ready.'), 'success');
+      app.playing = !reducedMotion;
+      setFollowing(false); chooseRanking('race'); await refreshReplay(true); message('submission-message', t('Practice replay ready.'), 'success');
     } catch (error) { message('submission-message', error.localized || error.message, 'error'); }
     finally { app.practiceBusy = false; updateControls(); }
   });
@@ -527,6 +546,7 @@
   $('rules-toggle').addEventListener('click', event => { event.preventDefault(); $('rules-content').hidden = !$('rules-content').hidden; loadRules(); });
   function authStatus() {
     $('admin-token').value = adminToken;
+    $('teacher-access').open = !adminToken;
     text('auth-status', adminToken ? t('Key saved in this tab. Authorization is checked by the server on each admin request.') : t('Enter the teacher secret to enable controls.')); updateControls();
   }
   $('admin-auth').addEventListener('submit', event => { event.preventDefault(); adminToken = $('admin-token').value.trim(); const saved = safeSet(sessionStorage, 'pod-lab:admin', adminToken); authStatus(); if (!saved) text('auth-status', t('Browser storage is blocked. Key kept only until this page reloads.')); });
@@ -539,7 +559,7 @@
       await pollState();
       message('admin-message', app.online ? success : t('{success} The server accepted the action, but the public state refresh failed; verify after reconnection.', { success }), app.online ? 'success' : ''); return true;
     } catch (error) {
-      message('admin-message', error.localized || error.message, 'error'); if (error.status === 401 || error.status === 403) text('auth-status', t('The server rejected this key. Check the secret in the server console.')); await pollState(); return false;
+      message('admin-message', error.localized || error.message, 'error'); if (error.status === 401 || error.status === 403) { $('teacher-access').open = true; text('auth-status', t('The server rejected this key. Check the secret in the server console.')); } await pollState(); return false;
     } finally { app.adminBusy = false; updateControls(); }
   }
   $('start-session').addEventListener('click', () => adminAction('/api/admin/session/start', { duration_seconds: 7200 }, t('Coding session opened.')));
