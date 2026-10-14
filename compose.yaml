@@ -22,6 +22,10 @@ services:
       - "${POD_BIND:-127.0.0.1}:${POD_PORT:-8765}:8765"
     environment:
       POD_DATA_DIR: /data
+      POD_PUBLIC_ORIGINS: "${POD_PUBLIC_ORIGINS:-}"
+      POD_ALLOWED_HOSTS: "${POD_ALLOWED_HOSTS:-}"
+      POD_SUBMISSIONS_PER_MINUTE: "${POD_SUBMISSIONS_PER_MINUTE:-240}"
+      POD_PRACTICE_PER_MINUTE: "${POD_PRACTICE_PER_MINUTE:-60}"
       # Do not inherit a Windows host's npipe:// DOCKER_HOST into Linux.
       DOCKER_HOST: unix:///var/run/docker.sock
     volumes:

@@ -13,6 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from .http_security import (HTTPSecurityMiddleware, RequestBudget, configured_hosts, configured_origins,
+                            configured_request_limits)
 from .locale_api import (LanguageHeadersMiddleware, language_for, localize_replay,
                          localize_rules, localize_state, translate, translate_detail)
 from .store import Store
@@ -121,13 +123,19 @@ class BoundedJSONMiddleware:
 
 
 def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
+    public_origins = configured_origins()
+    allowed_hosts = configured_hosts()
+    request_budget = RequestBudget(configured_request_limits())
     store = Store(data_dir)
     tournament = Tournament(store, race_fn=race_fn, tracks_fn=tracks_fn, sandbox_fn=sandbox_fn)
     application = FastAPI(title="Pod Racing Classroom", docs_url=None, redoc_url=None)
     application.state.store = store
     application.state.tournament = tournament
+    application.state.request_budget = request_budget
     application.add_middleware(BoundedJSONMiddleware)
     application.add_middleware(LanguageHeadersMiddleware)
+    application.add_middleware(HTTPSecurityMiddleware, public_origins=public_origins,
+                               allowed_hosts=allowed_hosts, request_budget=request_budget)
     # Print on every server launch so a returning teacher can sign in after restart.
     # This goes only to the teacher's local server console, never a public endpoint.
     print(f"Teacher admin token (save this privately): {store.admin_token}", flush=True)
