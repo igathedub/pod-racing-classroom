@@ -11,6 +11,7 @@ from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from .locale_api import language_for, translate
+from .base_path import application_path
 
 
 SECURITY_HEADERS = {
@@ -128,7 +129,7 @@ class HTTPSecurityMiddleware:
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
                 headers.update(SECURITY_HEADERS)
-                if scope["path"].startswith("/api/"):
+                if application_path(scope).startswith("/api/"):
                     headers["Cache-Control"] = "no-store"
             await send(message)
 
@@ -162,7 +163,7 @@ class HTTPSecurityMiddleware:
                                                                  "Vary": "Accept-Language"})
                 return await response(scope, receive, secured_send)
         if scope["method"] == "POST" and self.request_budget is not None:
-            retry = self.request_budget.retry_after(scope["path"])
+            retry = self.request_budget.retry_after(application_path(scope))
             if retry:
                 language = language_for(request)
                 response = JSONResponse({"detail": translate("Too many requests. Wait and try again.", language)},

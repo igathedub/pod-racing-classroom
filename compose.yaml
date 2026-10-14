@@ -1,6 +1,6 @@
 services:
   sandbox:
-    image: pod-classroom-bot:local
+    image: "${POD_BOT_IMAGE:-pod-classroom-bot:local}"
     pull_policy: build
     build:
       context: ./sandbox
@@ -22,6 +22,8 @@ services:
       - "${POD_BIND:-127.0.0.1}:${POD_PORT:-8765}:8765"
     environment:
       POD_DATA_DIR: /data
+      POD_BASE_PATH: "${POD_BASE_PATH:-}"
+      POD_BOT_IMAGE: "${POD_BOT_IMAGE:-pod-classroom-bot:local}"
       POD_PUBLIC_ORIGINS: "${POD_PUBLIC_ORIGINS:-}"
       POD_ALLOWED_HOSTS: "${POD_ALLOWED_HOSTS:-}"
       POD_SUBMISSIONS_PER_MINUTE: "${POD_SUBMISSIONS_PER_MINUTE:-240}"

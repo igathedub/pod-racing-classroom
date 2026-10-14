@@ -1,0 +1,23 @@
+# Independent protected Mac reserve: prefix/cookies/storage never use root defaults.
+services:
+  classroom:
+    environment:
+      POD_BASE_PATH: /backup
+      POD_CLASS_ACCESS_REQUIRED: '1'
+      POD_CLASS_COOKIE_SECURE: '1'
+      POD_ALLOWED_HOSTS: codeweek-wi.de,localhost,127.0.0.1
+      POD_PUBLIC_ORIGINS: https://codeweek-wi.de,http://localhost:8766,http://127.0.0.1:8766
+    labels:
+      pod.operator.role: backup
+  password-gate:
+    environment:
+      POD_BACKUP_EDGE_SECRET: "${POD_BACKUP_EDGE_SECRET:?Supply the existing private Worker marker; do not rotate implicitly}"
+    volumes: !override
+      - type: bind
+        source: ./deploy/Caddyfile.backup
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+    labels:
+      pod.operator.role: backup

@@ -1,0 +1,45 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+http://:8080 {
+	@local host localhost 127.0.0.1
+	handle @local {
+		route {
+			basic_auth argon2id "Pod Lab Mac Backup" {
+				{$POD_SITE_USER} {$POD_SITE_PASSWORD_HASH}
+			}
+			@root path /
+			redir @root /backup/ 308
+			@backup path /backup /backup/*
+			reverse_proxy @backup classroom:8765 {
+				header_up -Authorization
+				header_up -X-Pod-Backup-Gateway
+			}
+			respond "Not found" 404
+		}
+	}
+
+	@edge {
+		host mac-backup-origin.codeweek-wi.de
+		header X-Pod-Backup-Gateway {$POD_BACKUP_EDGE_SECRET}
+		path /backup /backup/*
+	}
+	handle @edge {
+		basic_auth argon2id "Pod Lab Mac Backup" {
+			{$POD_SITE_USER} {$POD_SITE_PASSWORD_HASH}
+		}
+		reverse_proxy classroom:8765 {
+			header_up -Authorization
+			header_up -X-Pod-Backup-Gateway
+			header_up Host codeweek-wi.de
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

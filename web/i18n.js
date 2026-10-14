@@ -414,7 +414,7 @@
     document.getElementById('language-switch').value = language;
     document.querySelectorAll('nav [data-view], .wordmark').forEach(link => { const url = new URL(link.href); url.searchParams.set('lang', language); link.href = url.pathname + url.search; });
     const starter = document.querySelector('a[download="starter.py"]');
-    if (starter) starter.href = `/api/starter?lang=${language}`;
+    if (starter) starter.href = `${document.body.dataset.basePath || ''}/api/starter?lang=${language}`;
     try { localStorage.setItem('pod-lab:language', language); } catch { /* language still changes in memory */ }
   }
   window.PodLocale = { t, serverText, apply, LocalizedText, get language() { return language; }, setLanguage(value) { if (!dictionaries[value]) return; language = value; apply(); } };

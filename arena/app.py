@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import re
 import secrets
 import time
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -18,6 +19,7 @@ from .http_security import (HTTPSecurityMiddleware, RequestBudget, configured_ho
 from .locale_api import (LanguageHeadersMiddleware, language_for, localize_replay,
                          localize_rules, localize_state, translate, translate_detail)
 from .class_access import ClassAccess, COOKIE, settings
+from .base_path import application_path, configured_base_path
 from .store import Store
 from .tournament import CompetitionError, Tournament
 
@@ -128,6 +130,9 @@ class BoundedJSONMiddleware:
 
 
 def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
+    base_path = configured_base_path()
+    # Escape underscores before separators so nested paths cannot collide.
+    cookie_name = COOKIE + '_' + base_path[1:].replace('_', '_u').replace('/', '_s') if base_path else COOKIE
     public_origins = configured_origins()
     allowed_hosts = configured_hosts()
     request_budget = RequestBudget(configured_request_limits())
@@ -175,13 +180,14 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
     def participant(request: Request):
         if not access_required or is_admin(request):
             return
-        token = request.cookies.get(COOKIE)
+        token = request.cookies.get(cookie_name)
         if not classroom_access.valid(token):
             raise HTTPException(401, 'Classroom access required.')
         limits = {'/api/submissions': access_limits['POD_PARTICIPANT_SUBMISSIONS_PER_MINUTE'],
                   '/api/practice': access_limits['POD_PARTICIPANT_PRACTICE_PER_MINUTE']}
-        if request.method == 'POST' and request.url.path in limits:
-            classroom_access.consume(token, request.url.path, limits[request.url.path])
+        path = application_path(request.scope)
+        if request.method == 'POST' and path in limits:
+            classroom_access.consume(token, path, limits[path])
 
     @application.get('/api/health')
     def health():
@@ -189,7 +195,7 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
 
     @application.get('/api/access')
     def access(request: Request):
-        authorized = not access_required or is_admin(request) or bool(classroom_access.valid(request.cookies.get(COOKIE)))
+        authorized = not access_required or is_admin(request) or bool(classroom_access.valid(request.cookies.get(cookie_name)))
         return {'required': access_required, 'authorized': authorized}
 
     @application.get('/api/admin/access/invitation', dependencies=[Depends(admin)])
@@ -206,10 +212,10 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
 
     @application.post('/api/join')
     def join(body: Join, request: Request):
-        token, expires = classroom_access.join(body.code, request.cookies.get(COOKIE))
+        token, expires = classroom_access.join(body.code, request.cookies.get(cookie_name))
         response = JSONResponse({'authorized': True})
-        response.set_cookie(COOKIE, token, max_age=max(1, int(expires - time.time())),
-                            httponly=True, secure=access_flags['POD_CLASS_COOKIE_SECURE'], samesite='strict', path='/')
+        response.set_cookie(cookie_name, token, max_age=max(1, int(expires - time.time())),
+                            httponly=True, secure=access_flags['POD_CLASS_COOKIE_SECURE'], samesite='strict', path=base_path or '/')
         return response
 
     @application.get("/api/state", dependencies=[Depends(participant)])
@@ -319,8 +325,27 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
         path = ROOT / "web" / "index.html"
         if not path.is_file():
             raise HTTPException(503, "Classroom frontend is not installed.")
+        if base_path:
+            # Trusted, validated config only; no inline scripts or <base> (CSP).
+            html = path.read_text(encoding="utf-8")
+            html = html.replace('<body data-access="pending">',
+                                f'<body data-access="pending" data-base-path="{base_path}">')
+            html = re.sub(r'((?:href|src)=")(/[^"\n]*)"',
+                          lambda match: match[1] + base_path + match[2] + '"', html)
+            return HTMLResponse(html)
         return FileResponse(path, media_type="text/html")
 
+    if base_path:
+        # A real ASGI mount keeps routing and redirect URLs in the namespace.
+        # The only root-level endpoint is the minimal Docker liveness probe.
+        mounted = FastAPI(title=application.title, docs_url=None, redoc_url=None, openapi_url=None)
+        mounted.state = application.state
+        mounted.add_middleware(LanguageHeadersMiddleware)
+        mounted.add_middleware(HTTPSecurityMiddleware, public_origins=public_origins,
+                               allowed_hosts=allowed_hosts)
+        mounted.add_api_route('/api/health', health, methods=['GET'])
+        mounted.mount(base_path, application)
+        return mounted
     return application
 
 

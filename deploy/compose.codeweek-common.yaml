@@ -1,0 +1,22 @@
+# Always combine with compose.yaml AND compose.password.yaml, then the role overlay.
+# Explicit existing volume/image selection prevents accidental empty installations.
+services:
+  sandbox:
+    image: "${POD_BOT_IMAGE:?Set the exact role-specific bot image/tag in the private env file}"
+    pull_policy: never
+  classroom:
+    image: "${POD_APP_IMAGE:?Set the exact immutable application release tag in the private env file}"
+    ports: !reset []
+    environment:
+      POD_BOT_IMAGE: "${POD_BOT_IMAGE:?Set the exact role-specific bot image/tag}"
+    cpus: "${POD_APP_CPUS:-4.0}"
+    mem_limit: "${POD_APP_MEMORY:-1536m}"
+    logging:
+      driver: local
+      options:
+        max-size: '10m'
+        max-file: '2'
+volumes:
+  classroom-data:
+    external: true
+    name: "${POD_DATA_VOLUME:?Set the exact existing or explicitly restored volume; never guess}"

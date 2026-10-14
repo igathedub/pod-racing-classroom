@@ -1,0 +1,14 @@
+# Protected Windows primary: root namespace and independent original website credentials.
+services:
+  classroom:
+    environment:
+      POD_BASE_PATH: ""
+      POD_CLASS_ACCESS_REQUIRED: '1'
+      POD_CLASS_COOKIE_SECURE: '1'
+      POD_ALLOWED_HOSTS: codeweek-wi.de,localhost,127.0.0.1
+      POD_PUBLIC_ORIGINS: https://codeweek-wi.de
+    labels:
+      pod.operator.role: primary
+  password-gate:
+    labels:
+      pod.operator.role: primary
