@@ -3,7 +3,10 @@
   const $ = id => document.getElementById(id);
   const { t } = window.PodLocale;
   const localizedFields = new Map();
-  const view = location.pathname.replace(/\/$/, '') === '/teacher' ? 'teacher' : location.pathname.replace(/\/$/, '') === '/projector' ? 'projector' : 'student';
+  const basePath = document.body.dataset.basePath || '';
+  const storagePrefix = basePath ? `pod-lab:${basePath}` : 'pod-lab';
+  const viewPath = location.pathname.slice(basePath.length).replace(/\/$/, '');
+  const view = viewPath === '/teacher' ? 'teacher' : viewPath === '/projector' ? 'projector' : 'student';
   document.body.dataset.view = view;
   document.querySelectorAll('nav [data-view]').forEach(link => { if (link.dataset.view === view) link.setAttribute('aria-current', 'page'); });
   $('student-panel').hidden = view !== 'student';
@@ -26,9 +29,9 @@
   const safeGet = (store, key) => { try { return store.getItem(key) || ''; } catch { return ''; } };
   const safeSet = (store, key, value) => { try { if (value) store.setItem(key, value); else store.removeItem(key); return true; } catch { return false; } };
   const memoryClaims = new Map();
-  const aliasKey = alias => `pod-lab:claim:${alias.trim().toLowerCase()}`;
+  const aliasKey = alias => `${storagePrefix}:claim:${alias.trim().toLowerCase()}`;
   const claimFor = alias => memoryClaims.get(alias.trim().toLowerCase()) || safeGet(localStorage, aliasKey(alias));
-  let adminToken = view === 'teacher' ? safeGet(sessionStorage, 'pod-lab:admin') : '';
+  let adminToken = view === 'teacher' ? safeGet(sessionStorage, `${storagePrefix}:admin`) : '';
   const humanStatus = status => ({ waiting: t('Waiting for teacher to open'), open: t('Submissions are open'), closed: t('Submissions closed'), qualifying: t('Qualification in progress'), qualified: t('Qualification complete'), final: t('Final race in progress'), finished: t('Classroom final complete') }[status] || t('Waiting for session'));
   const formatTime = seconds => {
     const s = Math.max(0, Math.floor(seconds));
@@ -56,7 +59,7 @@
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       if (admin && (view !== 'teacher' || !adminToken)) throw localizedError(t('Enter the teacher secret first.'));
       if (view === 'teacher' && adminToken) headers['X-Admin-Token'] = adminToken;
-      const response = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal, credentials: 'same-origin', cache: 'no-store' });
+      const response = await fetch(basePath + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal, credentials: 'same-origin', cache: 'no-store' });
       let data;
       try { data = await response.json(); } catch { data = null; }
       if (!response.ok) { if (response.status === 401 && (path === '/api/state' || path === '/api/submissions' || path === '/api/practice' || path.startsWith('/api/replays/'))) lockClassroom(); const error = localizedError(errorText(data, response.status)); error.status = response.status; throw error; }
@@ -487,7 +490,7 @@
     const size = new TextEncoder().encode($('code').value).byteLength;
     text('code-size', `${(size / 1024).toLocaleString(window.PodLocale.language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / 32 KiB`); $('code-size').style.color = size > 32768 ? 'var(--red)' : ''; return size;
   }
-  $('alias').value = safeGet(localStorage, 'pod-lab:last-alias');
+  $('alias').value = safeGet(localStorage, `${storagePrefix}:last-alias`);
   const validationKeys = { alias: 'Enter your pilot alias.', code: 'Paste your Python code.', 'admin-token': 'Enter the teacher secret.', 'reset-confirm': 'Type RESET to confirm.' };
   for (const [id, key] of Object.entries(validationKeys)) {
     $(id).addEventListener('invalid', () => { $(id).setCustomValidity(String(t(key))); $(id).dataset.validationKey = key; });
@@ -519,7 +522,7 @@
       if (!result.id || !result.claim_token || !result.alias) throw localizedError(t('The server did not return a valid submission claim.'));
       memoryClaims.set(result.alias.trim().toLowerCase(), result.claim_token);
       const stored = safeSet(localStorage, aliasKey(result.alias), result.claim_token);
-      safeSet(localStorage, 'pod-lab:last-alias', result.alias); $('alias').value = result.alias;
+      safeSet(localStorage, `${storagePrefix}:last-alias`, result.alias); $('alias').value = result.alias;
       $('claim-token').value = result.claim_token;
       message('submission-message', t('{alias} saved · version {version}.{storage}', { alias: result.alias, version: result.version, storage: t(stored ? ' Claim token saved in this browser.' : ' Browser storage is unavailable. Download your private claim token now before leaving this tab.') }), 'success');
       if (!stored) { $('export-claim').disabled = false; $('export-claim').dataset.unsaved = result.claim_token; }
@@ -574,8 +577,8 @@
     $('teacher-access').open = !adminToken;
     text('auth-status', adminToken ? t('Key saved in this tab. Authorization is checked by the server on each admin request.') : t('Enter the teacher secret to enable controls.')); updateControls();
   }
-  $('admin-auth').addEventListener('submit', event => { event.preventDefault(); adminToken = $('admin-token').value.trim(); const saved = safeSet(sessionStorage, 'pod-lab:admin', adminToken); authStatus(); if (!saved) text('auth-status', t('Browser storage is blocked. Key kept only until this page reloads.')); pollState(); });
-  $('forget-key').addEventListener('click', () => { adminToken = ''; text('invitation-code', ''); text('invitation-status', ''); safeSet(sessionStorage, 'pod-lab:admin', ''); $('inspected-code').textContent = ''; $('inspected-code').hidden = true; authStatus(); pollState(); });
+  $('admin-auth').addEventListener('submit', event => { event.preventDefault(); adminToken = $('admin-token').value.trim(); const saved = safeSet(sessionStorage, `${storagePrefix}:admin`, adminToken); authStatus(); if (!saved) text('auth-status', t('Browser storage is blocked. Key kept only until this page reloads.')); pollState(); });
+  $('forget-key').addEventListener('click', () => { adminToken = ''; text('invitation-code', ''); text('invitation-status', ''); safeSet(sessionStorage, `${storagePrefix}:admin`, ''); $('inspected-code').textContent = ''; $('inspected-code').hidden = true; authStatus(); pollState(); });
   async function adminAction(path, body, success) {
     if (app.adminBusy) return false;
     app.adminBusy = true; updateControls(); message('admin-message', t('Sending request…'));
