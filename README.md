@@ -107,6 +107,76 @@ uv run python launch.py --host 0.0.0.0 --port 8765
 
 For use only on the teacher's computer, omit `--host 0.0.0.0` (the default is localhost). `POD_DATA_DIR` selects another database/replay directory; the default is `data/`. Keep one server process/worker, because this local version uses a single tournament worker.
 
+## Optional time-limited classroom access
+
+Private operation remains backward compatible: `POD_CLASS_ACCESS_REQUIRED=0` (default)
+does not require participant login. To opt in, configure these Compose environment
+settings and recreate the app only through your normal approved update procedure:
+
+```dotenv
+POD_CLASS_ACCESS_REQUIRED=1
+POD_CLASS_COOKIE_SECURE=1
+POD_PARTICIPANT_SUBMISSIONS_PER_MINUTE=30
+POD_PARTICIPANT_PRACTICE_PER_MINUTE=6
+POD_JOIN_PER_MINUTE=120
+```
+
+Use HTTPS for the browser. Secure cookies are the default, including when a TLS
+proxy connects to an HTTP origin. `POD_CLASS_COOKIE_SECURE=0` is an explicit escape
+hatch **only for isolated HTTP tests**, not a public deployment recommendation.
+Boolean flags accept only `0`/`1`; quotas accept decimal integers from 1 to 10000.
+All HTTP/access settings are validated before the data store is created.
+
+Sign in at `/teacher` with the existing teacher secret. The separate, collapsed
+**Classroom invitations** controls create/renew a random code for 7200 seconds by
+default; select any whole-number duration from 1 to 86400 seconds. The code is
+shown only in the authenticated creation response/teacher tab, not the public
+state, status endpoint or logs. SQLite stores its SHA-256 hash, expiry and
+monotonically advanced invitation generation, plus hashed opaque session tokens.
+A status fetch or page reload cannot recover the code: renew it if lost.
+
+Students **and projectors** submit the code using JSON `POST /api/join`, never a
+URL. Joining sets a host-only HttpOnly, SameSite=Strict, Secure participant cookie
+valid no longer than the invitation. The persistent registry admits at most 60
+sessions. Rejoining with a still-valid browser cookie reuses its session and
+quotas; expired entries are pruned on join. A full registry returns 429 rather
+than evicting an active participant. Renewal/revocation invalidates all previous
+participant sessions immediately, including across restarts, but leaves the
+competition, submissions, bot claim tokens and archived replays unchanged.
+Already-running authorized work is not canceled and previously downloaded data
+cannot be recalled. UI polling returns to the join form within its next refresh;
+typed editor drafts and locally stored bot claims are not erased.
+
+When enabled, state/replay reads and submission/practice writes require a valid
+participant cookie or the correct `X-Admin-Token`. A participant cookie never
+authorizes teacher endpoints; practice still requires the separate bot claim.
+Teacher reads send the admin header, and teacher signin works before state is
+available. Per-participant 60-second fixed windows allow 30 submission attempts
+and 6 practice attempts; 429 includes `Retry-After`. These persisted budgets are
+keyed only by authenticated server sessions, not shared/spoofable IP headers.
+The existing process-wide 240/60 budgets still apply (including admin requests),
+and joining has a separate process-wide 120-attempt/minute budget. Invalid
+attempts count; global windows reset on restart and are not a distributed DoS
+solution. Clearing a cookie can consume another of the 60 slots; this is shared
+classroom invitation access, **not individual identity or abuse-proof fairness**.
+Use exactly one app worker and keep the server clock correct.
+
+API: public `GET /api/access` returns only `required`/`authorized`, and public
+`GET /api/health` returns only `sandbox.available` (also used by container health).
+Admin-only `GET /api/admin/access/invitation` reports active/generation/expiry;
+`POST /api/admin/access/invitation` takes `{"duration_seconds":7200}` (or `{}`);
+`POST /api/admin/access/revoke` revokes access. Resetting the whole classroom also
+clears its access registry; it is not the non-destructive revoke operation.
+
+**This feature is not approval for anonymous public code execution.** The app's
+Docker socket remains host-admin-equivalent. Edge access/DoS controls, isolation,
+HTTPS and direct-origin protection still need independent review. Whole-host
+teacher-only Cloudflare Access configuration is outside this feature's scope;
+see [SECURITY_PREPARATION.md](SECURITY_PREPARATION.md). No deployment is performed
+by the tests. `tests/test_class_access*.py` exercise isolated FastAPI databases and
+real Chromium with actual CSP headers; injected fake race/sandbox functions do
+not constitute verification of Docker bot execution.
+
 ## Student interface
 
 Download the starter from the website. Each turn your program reads:

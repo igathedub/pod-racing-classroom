@@ -22,7 +22,7 @@ def ui_page(api):
         def serve(route):
             url = urlsplit(route.request.url)
             assert route.request.method == "GET", "UI checks must not mutate the live classroom."
-            response = client.get(url.path + ("?" + url.query if url.query else ""))
+            response = client.get(url.path + ("?" + url.query if url.query else ""), headers=route.request.headers)
             route.fulfill(status=response.status_code, body=response.content,
                           headers=dict(response.headers))
 
@@ -198,7 +198,7 @@ def test_open_session_student_actions_are_not_clipped(api, width, height, langua
         def serve(route):
             url = urlsplit(route.request.url)
             assert route.request.method == "GET", "Layout tests must never submit student code."
-            response = client.get(url.path + ("?" + url.query if url.query else ""))
+            response = client.get(url.path + ("?" + url.query if url.query else ""), headers=route.request.headers)
             route.fulfill(status=response.status_code, body=response.content,
                           headers=dict(response.headers))
 

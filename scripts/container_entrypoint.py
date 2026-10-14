@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 def healthcheck() -> None:
-    with urlopen("http://127.0.0.1:8765/api/state", timeout=12) as response:
+    with urlopen("http://127.0.0.1:8765/api/health", timeout=12) as response:
         state = json.load(response)
     if not state["sandbox"]["available"]:
         raise SystemExit("Docker sandbox unavailable")
