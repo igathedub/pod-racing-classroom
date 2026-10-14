@@ -111,6 +111,8 @@ Die Daten liegen im projektbezogenen benannten Volume `classroom-data`, im Conta
 
 ## Sicherheit und Docker-Socket
 
+Vorbereiteter HTTP-Basisschutz und der Ablauf für einen **zunächst ausschließlich für Lehrkräfte geschützten Tunnel-Test** sind in [SECURITY_PREPARATION.md](SECURITY_PREPARATION.md) dokumentiert. Diese Vorbereitung ist keine Freigabe für ungeschützten öffentlichen Schülerbetrieb; die unten beschriebenen Docker-Risiken bleiben bestehen.
+
 Hochgeladener Code läuft ausschließlich in eingeschränkten, getrennten Docker-Containern: ohne Netzwerk, ohne Host-Mounts, als nicht privilegierter Benutzer, mit schreibgeschütztem Dateisystem, verworfenen Linux-Capabilities und Ressourcen-/Ausgabelimits. Fehlt Docker oder das Sandbox-Image, wird die Ausführung verweigert; es gibt keinen unsicheren Fallback auf den Host.
 
 **Die Anwendung selbst erhält `/var/run/docker.sock`. Dieser Zugriff ist einer Host-Administratorberechtigung gleichzusetzen.** Die Anwendung ist vertrauenswürdige Verwaltungssoftware und läuft für gängige Socket-Berechtigungen als root. **Schüler-Bots erhalten niemals diesen Socket oder andere Host-Mounts.** Auch ein schreibgeschützt eingebundener Socket ist keine Sicherheitsgrenze. Keinen ungesicherten TCP-Docker-Daemon verwenden und die Website nicht öffentlich zugänglich machen. Docker ist eine praktische Isolation, keine Garantie gegen jede Kernel-/Runtime-Sicherheitslücke. Docker aktuell halten; für feindliche öffentliche Einreichungen eine isolierte, entbehrliche VM verwenden.

@@ -7,6 +7,9 @@ from urllib.parse import parse_qs
 
 
 MESSAGES = {
+    "Request origin is not allowed.": "Diese Anfrage stammt nicht von einer erlaubten Webseite.",
+    "Request hostname is not allowed.": "Diese Serveradresse ist nicht erlaubt.",
+    "Too many requests. Wait and try again.": "Zu viele Anfragen. Warte kurz und versuche es erneut.",
     "Teacher token required.": "Der Lehrkraft-Schlüssel ist erforderlich.",
     "Replay not found.": "Die Rennaufzeichnung wurde nicht gefunden.",
     "Submission not found.": "Die Einreichung wurde nicht gefunden.",

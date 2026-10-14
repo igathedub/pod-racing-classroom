@@ -16,13 +16,15 @@ def ui_page(api):
         page = browser.new_page(viewport={"width": 1366, "height": 768})
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
+        page.expose_function("recordCSPViolation", lambda directive: errors.append("CSP violation: " + directive))
+        page.add_init_script("addEventListener('securitypolicyviolation', e => window.recordCSPViolation(e.effectiveDirective))")
 
         def serve(route):
             url = urlsplit(route.request.url)
             assert route.request.method == "GET", "UI checks must not mutate the live classroom."
             response = client.get(url.path + ("?" + url.query if url.query else ""))
             route.fulfill(status=response.status_code, body=response.content,
-                          content_type=response.headers.get("content-type", "text/plain"))
+                          headers=dict(response.headers))
 
         page.route("**/*", serve)
         yield page, client, app
@@ -36,7 +38,7 @@ def ui_page(api):
 def test_follow_switch_has_explicit_state(ui_page, view, language, on, off):
     page, _, _ = ui_page
     page.goto(f"http://classroom.test{view}?lang={language}")
-    page.wait_for_function("document.body.dataset.stateLanguage !== undefined")
+    page.wait_for_function("() => document.body.dataset.stateLanguage !== undefined")
     toggle = page.locator("#follow-live")
     assert toggle.inner_text() == on
     assert toggle.get_attribute("aria-pressed") == "true"
@@ -55,7 +57,7 @@ def test_follow_switch_has_explicit_state(ui_page, view, language, on, off):
 def test_role_work_panel_precedes_race_and_hides_empty_standings(ui_page, view):
     page, _, _ = ui_page
     page.goto(f"http://classroom.test{view}?lang=de")
-    page.wait_for_function("document.body.dataset.stateLanguage !== undefined")
+    page.wait_for_function("() => document.body.dataset.stateLanguage !== undefined")
     role = page.locator("#student-panel" if view == "/" else "#teacher-panel").bounding_box()
     race = page.locator(".race-panel").bounding_box()
     assert role["x"] < race["x"], "Primary work belongs before the race monitor on desktop"
@@ -76,7 +78,7 @@ def test_teacher_setup_is_collapsed_and_twenty_submissions_remain_accessible(ui_
     for index in range(20):
         assert client.post("/api/submissions", json={"alias": f"Demo {index:02d}", "code": "print(1)"}).status_code == 200
     page.goto("http://classroom.test/teacher?lang=de")
-    page.wait_for_function("document.querySelector('#entry-count').textContent === '20'")
+    page.wait_for_function("() => document.querySelector('#entry-count').textContent === '20'")
     assert not page.locator("#reset").is_visible(), "Reset is secondary, not an everyday action"
     assert not page.locator("#seed-demo").is_visible()
     assert page.locator("#teacher-access").get_attribute("open") is not None
@@ -88,7 +90,7 @@ def test_teacher_setup_is_collapsed_and_twenty_submissions_remain_accessible(ui_
     page.locator("#classroom-setup summary").click()
     assert page.locator("#reset").is_visible()
     page.goto("http://classroom.test/?lang=de")
-    page.wait_for_function("document.querySelector('#entry-count').textContent === '20'")
+    page.wait_for_function("() => document.querySelector('#entry-count').textContent === '20'")
     assert page.locator("#roster-panel").get_attribute("open") is None
     assert not page.locator("#roster").is_visible()
     page.locator("#roster-panel summary").click()
@@ -105,7 +107,7 @@ def test_replay_controls_and_results_return_when_races_exist(ui_page, view):
     assert app.state.store.get("job")["status"] == "finished"
     page.emulate_media(reduced_motion="reduce")
     page.goto(f"http://classroom.test{view}?lang=de")
-    page.wait_for_function("document.body.dataset.hasReplay === 'true'")
+    page.wait_for_function("() => document.body.dataset.hasReplay === 'true'")
     assert page.locator(".rank-panel").is_visible()
     assert page.locator(".transport").is_visible()
     assert page.locator("#race-canvas").bounding_box()["height"] >= 250
@@ -137,11 +139,11 @@ def test_practice_replay_focuses_race_positions(ui_page):
 
     page.route("**/api/**", submit_to_isolated_api)
     page.goto("http://classroom.test/?lang=de")
-    page.wait_for_function("!document.getElementById('test-bot').disabled")
+    page.wait_for_function("() => !document.getElementById('test-bot').disabled")
     page.locator("#alias").fill("Practice pilot")
     page.locator("#code").fill("print(1)")
     page.locator("#test-bot").click()
-    page.wait_for_function("document.querySelector('#submission-message').textContent === 'Testaufzeichnung ist bereit.'")
+    page.wait_for_function("() => document.querySelector('#submission-message').textContent === 'Testaufzeichnung ist bereit.'")
     assert page.locator("#tab-race").get_attribute("aria-selected") == "true"
     assert page.locator("#rankings tbody tr").count() == 2
     assert page.locator("#follow-live").inner_text() == "Automatisch folgen: AUS"
@@ -155,7 +157,7 @@ def test_twenty_results_do_not_stretch_the_student_editor(ui_page):
     app.state.tournament.start_qualification()
     app.state.tournament.worker.join(10)
     page.goto("http://classroom.test/?lang=de")
-    page.wait_for_function("document.body.dataset.hasReplay === 'true'")
+    page.wait_for_function("() => document.body.dataset.hasReplay === 'true'")
     assert page.locator("#rankings tbody tr").count() == 20
     assert page.locator("#rankings").bounding_box()["height"] <= 560
     panel = page.locator("#student-panel").bounding_box()
@@ -169,7 +171,7 @@ def test_saved_teacher_access_collapses_without_hiding_controls(ui_page):
     page, _, _ = ui_page
     page.add_init_script("sessionStorage.setItem('pod-lab:admin', 'teacher-test-secret')")
     page.goto("http://classroom.test/teacher?lang=de")
-    page.wait_for_function("document.body.dataset.stateLanguage !== undefined")
+    page.wait_for_function("() => document.body.dataset.stateLanguage !== undefined")
     assert page.locator("#teacher-access").get_attribute("open") is None
     assert not page.locator("#admin-token").is_visible()
     assert page.locator("#start-session").is_enabled()
@@ -190,17 +192,19 @@ def test_open_session_student_actions_are_not_clipped(api, width, height, langua
         page = browser.new_page(viewport={"width": width, "height": height})
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
+        page.expose_function("recordCSPViolation", lambda directive: errors.append("CSP violation: " + directive))
+        page.add_init_script("addEventListener('securitypolicyviolation', e => window.recordCSPViolation(e.effectiveDirective))")
 
         def serve(route):
             url = urlsplit(route.request.url)
             assert route.request.method == "GET", "Layout tests must never submit student code."
             response = client.get(url.path + ("?" + url.query if url.query else ""))
             route.fulfill(status=response.status_code, body=response.content,
-                          content_type=response.headers.get("content-type", "text/plain"))
+                          headers=dict(response.headers))
 
         page.route("**/*", serve)
         page.goto(f"http://classroom.test/?lang={language}")
-        page.wait_for_function("!document.getElementById('submit-bot').disabled")
+        page.wait_for_function("() => !document.getElementById('submit-bot').disabled")
         label = "Deinen Bot abgeben" if language == "de" else "Submit your bot"
         assert page.locator("#submit-bot").inner_text() == label
         page.locator("#alias").fill("Existing pilot")
