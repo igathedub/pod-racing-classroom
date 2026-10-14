@@ -57,7 +57,7 @@ class Docker:
     def stats(self, item):
         if not item["State"]["Running"]:
             raise BackupError("Read-only live inspection requires a running app")
-        source = "from pathlib import Path\nimport sqlite3,json\n" + inspect.getsource(snapshot_stats)
+        source = "from pathlib import Path\nimport sqlite3,json\n" + inspect.getsource(BackupError) + "\n" + inspect.getsource(snapshot_stats)
         source += "\nprint(json.dumps(snapshot_stats(Path('/data'))))"
         return self.json("exec", item["Id"], "python", "-c", source)
 
@@ -106,22 +106,25 @@ def safe_json(result):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--context", dest="context")
     parser.add_argument("--expected-endpoint", dest="endpoint")
-    subparsers = parser.add_subparsers(dest="command")
-    inspect_args = subparsers.add_parser("inspect")
-    inspect_args.add_argument("--project"); inspect_args.add_argument("--container"); inspect_args.add_argument("--volume")
-    backup_args = subparsers.add_parser("backup")
-    backup_args.add_argument("--project"); backup_args.add_argument("--container"); backup_args.add_argument("--volume")
-    backup_args.add_argument("--gate-container"); backup_args.add_argument("--output"); backup_args.add_argument("--private-file", action="append")
-    restore_args = subparsers.add_parser("restore")
-    restore_args.add_argument("--backup"); restore_args.add_argument("--new-volume"); restore_args.add_argument("--image")
-    check_args = subparsers.add_parser("check")
-    check_args.add_argument("--backup")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    for name in ("inspect", "backup"):
+        command = subparsers.add_parser(name)
+        for flag in ("--project", "--container", "--volume"):
+            command.add_argument(flag, required=True)
+        if name == "backup":
+            command.add_argument("--gate-container")
+            command.add_argument("--output", required=True)
+            command.add_argument("--private-file", action="append")
+    command = subparsers.add_parser("restore")
+    for flag in ("--backup", "--new-volume", "--image"):
+        command.add_argument(flag, required=True)
+    subparsers.add_parser("check").add_argument("--backup", required=True)
     args = parser.parse_args(argv)
-    if not args.command:
-        raise SystemExit(1)
+    if args.command != "check" and (not args.context or not args.endpoint):
+        parser.error("--context and --expected-endpoint are required for Docker operations")
     try:
         result = None
         if args.command == "inspect":
@@ -139,12 +142,16 @@ def main(argv=None):
             result = restore(docker, args.backup, args.new_volume, args.image)
             json.dump(safe_json(result), sys.stdout, indent=2)
         else:
-            check_backup(Path(args.backup))
-            result = safe_json({"status": "integrity-ok"})
-            json.dump(result, sys.stdout, indent=2)
+            manifest = check_backup(Path(args.backup))
+            json.dump({"status": "verified", **safe_json(manifest["stats"])}, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 0
     except BackupError as exc:
         print(json.dumps({"error": str(exc)}), file=sys.stderr)
-        raise SystemExit(1) from None
+        return 1
+    except (OSError, sqlite3.Error, ValueError, KeyError, TypeError):
+        print(json.dumps({"error": "Invalid backup, configuration or filesystem; private diagnostics suppressed"}), file=sys.stderr)
+        return 1
 
 
 import hashlib
@@ -166,7 +173,7 @@ def outside_repo(path):
 
 
 def require_private(path):
-    if os.name == "nt":
+    if WINDOWS:
         _windows_require_private_acl(path)
         return
     info = path.stat()
@@ -184,8 +191,8 @@ def _windows_require_private_acl(path):
     env["CLASSROOM_PRIVATE_ACL_PATH"] = str(path)
     script = (
         "$acl = Get-Acl $env:CLASSROOM_PRIVATE_ACL_PATH; "
-        "$owner = $acl.Owner; $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; "
-        "$allow = @($acl.Access | Where-Object { $_.AccessControlType -eq 'Allow' } | ForEach-Object { $_.IdentityReference.Value }); "
+        "$owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value; $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; "
+        "$allow = @($acl.Access | Where-Object { $_.AccessControlType -eq 'Allow' } | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }); "
         "ConvertTo-Json @{owner=$owner; user=$user; allow=$allow}"
     )
     result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
@@ -205,7 +212,7 @@ def _windows_require_private_acl(path):
 def privatize(root):
     inventory(root)  # Reject symlinks BEFORE chmod or following any private file.
     for path in [root, *root.rglob("*")]:
-        if os.name != "nt":
+        if not WINDOWS:
             path.chmod(0o700 if path.is_dir() else 0o600)
         require_private(path)
 
@@ -414,3 +421,7 @@ def restore(docker, backup_dir, new_volume, image):
             if docker.call("container", "ls", "--all", "--quiet", "--no-trunc", "--filter", f"id={helper}").strip():
                 raise BackupError("Restore helper removal unverified; target volume retained")
     return {"volume": new_volume, "counts": manifest["stats"]["counts"], "replay_files": manifest["stats"]["replay_files"]}
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

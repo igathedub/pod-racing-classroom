@@ -2,6 +2,8 @@
 
 [English documentation](README.md)
 
+**Geschützter Codeweek-Betrieb:** [Primärserver/Reserve wiederherstellen, sichern und aktualisieren](deploy/RESTORE.md). Die allgemeine Neuinstallationsanleitung unten ersetzt keinen Restore vorhandener Unterrichtsdaten.
+
 Eine lokal betriebene Website für Python-Programmierkurse: Die Lernenden reichen Programme unter einem Alias ein, fahren eine faire Qualifikation und sehen anschließend ein animiertes Finale der besten fünf Bots. Die Oberfläche bietet **Deutsch und Englisch** mit einem Sprachschalter auf jeder Ansicht. Das Spiel ist eine eigenständige Unterrichtsvariante, **nicht** der offizielle CodinGame-Schiedsrichter. Jede Person steuert einen Pod; das Finale mit fünf Pods ist ausdrücklich keine Gold-Liga-Simulation.
 
 ## Sprache und Programmierphase
@@ -25,7 +27,7 @@ Python, uv, Node.js und npm müssen auf dem Gastgeber-Rechner **nicht** installi
    git clone https://github.com/igathedub/pod-racing-classroom.git
    cd pod-racing-classroom
    ```
-   Das Repository ist privat. Zum Klonen/Herunterladen braucht die Lehrkraft einen berechtigten GitHub-Zugang oder ein vom Eigentümer bereitgestelltes Quellcodearchiv. Die Lernenden brauchen keinen GitHub-Zugang. Keine Zugangsdaten, Datenbanken oder Lehrkraft-Schlüssel mit dem Quellcode weitergeben.
+   Das Repository enthält den öffentlichen Quellcode. Die Lernenden brauchen keinen GitHub-Zugang. Zugangsdaten, Datenbanken und Lehrkraft-Schlüssel bleiben privat und werden nicht mit dem Quellcode weitergegeben.
 2. Im Projektordner ausführen:
    ```text
    docker compose up --build -d
