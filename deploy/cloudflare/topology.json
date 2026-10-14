@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "note": "Public topology, not credentials. UUIDs identify resources; tunnel tokens are private and absent. Read current account state before writes.",
+  "primary": {
+    "hostname": "codeweek-wi.de",
+    "tunnel_name": "codeweek to Haga",
+    "tunnel_id": "cd4c4d2e-920b-4fe4-ba6d-8e9c2bdf3d35",
+    "dns": {"type": "CNAME", "proxied": true, "target": "cd4c4d2e-920b-4fe4-ba6d-8e9c2bdf3d35.cfargotunnel.com"},
+    "service": "http://127.0.0.1:8766",
+    "path": "",
+    "data_volume_observed": "pod-racing-classroom_classroom-data",
+    "compose_project_observed": "pod-racing-classroom"
+  },
+  "backup": {
+    "public_prefix": "https://codeweek-wi.de/backup",
+    "origin_hostname": "mac-backup-origin.codeweek-wi.de",
+    "tunnel_name": "codeweek-mac-backup",
+    "tunnel_id": "b0b1bdce-f659-4ca4-a1a2-916aa7a230e0",
+    "dns": {"type": "CNAME", "proxied": true, "target": "b0b1bdce-f659-4ca4-a1a2-916aa7a230e0.cfargotunnel.com"},
+    "service": "http://127.0.0.1:8766",
+    "path": "^/backup(/.*)?$",
+    "http_host_header": "mac-backup-origin.codeweek-wi.de",
+    "worker": "pod-classroom-mac-backup",
+    "route_pattern": "codeweek-wi.de/backup*",
+    "worker_variables": {"BACKUP_ORIGIN": "https://mac-backup-origin.codeweek-wi.de"},
+    "worker_secret_names": ["BACKUP_EDGE_SECRET"],
+    "origin_secret_names": ["POD_BACKUP_EDGE_SECRET"],
+    "workers_dev": false,
+    "previews": false,
+    "data_volume_observed": "pod-classroom-local_classroom-data",
+    "compose_project_observed": "pod-classroom-local"
+  },
+  "ssl_mode": "full",
+  "private_artifacts": ["primary_tunnel_token", "backup_tunnel_token", "primary_data_backup", "backup_data_backup", "website_passwords_and_hashes", "teacher_tokens"],
+  "constraints": ["Preserve MX/SPF/DKIM/DMARC", "Never attach Mac to the Windows tunnel", "No public backend port", "No student release implied", "Git clone does not restore classroom data"]
+}

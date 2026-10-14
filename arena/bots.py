@@ -9,13 +9,22 @@ import json
 import math
 import os
 import queue
+import re
 import shutil
 import subprocess
 import threading
 import time
 import uuid
 
-IMAGE = "pod-classroom-bot:local"
+def configured_image():
+    """Trusted operator setting, never derived from submitted code or HTTP."""
+    value = os.environ.get('POD_BOT_IMAGE', 'pod-classroom-bot:local')
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._/@:-]{0,254}', value) or '://' in value:
+        raise ValueError('POD_BOT_IMAGE must be a single Docker image reference without whitespace or options.')
+    return value
+
+
+IMAGE = configured_image()
 MAX_SOURCE_BYTES = 32768
 MAX_LINE_BYTES = 1024
 MAX_STDOUT_BYTES = 1024 * 1024
