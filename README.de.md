@@ -70,6 +70,76 @@ Diese Regel wird nicht automatisch gesetzt. Nach dem Workshop wieder entfernen. 
 
 Den Lehrkraft-Schlüssel und das Loginfeld nicht projizieren. Sitzung, Deadline und Ergebnisse überstehen einen Neustart. Ein unterbrochener Turnierauftrag wird als fehlgeschlagen markiert, nicht automatisch fortgesetzt. Während eines laufenden Turniers nicht aktualisieren oder zurücksetzen.
 
+## Optionaler zeitlich begrenzter Klassenzugang
+
+Ohne Opt-in bleibt der private Betrieb unverändert: `POD_CLASS_ACCESS_REQUIRED=0`
+ist der Standard. Für den Einladungsschutz diese Compose-Einstellungen setzen
+und den Container ausschließlich über den freigegebenen Update-Ablauf erneuern:
+
+```dotenv
+POD_CLASS_ACCESS_REQUIRED=1
+POD_CLASS_COOKIE_SECURE=1
+POD_PARTICIPANT_SUBMISSIONS_PER_MINUTE=30
+POD_PARTICIPANT_PRACTICE_PER_MINUTE=6
+POD_JOIN_PER_MINUTE=120
+```
+
+Browser-HTTPS ist nötig. Secure-Cookies bleiben auch bei einem HTTP-Origin hinter
+einem HTTPS-Proxy aktiv. `POD_CLASS_COOKIE_SECURE=0` ist ausschließlich für isolierte
+HTTP-Tests vorgesehen, keine Empfehlung für öffentlichen Betrieb. Flags akzeptieren
+nur `0`/`1`, Anfragebudgets dezimale Ganzzahlen von 1 bis 10000. Ungültige HTTP-/Zugangs-
+Einstellungen stoppen den Start, bevor der Datenspeicher angelegt wird.
+
+Unter `/teacher` mit dem bisherigen Lehrkraft-Schlüssel anmelden. Im separaten,
+eingeklappten Bereich **Einladungen für die Klasse** einen zufälligen Code erzeugen
+oder erneuern: standardmäßig 7200 Sekunden, zulässig 1–86400 ganze Sekunden.
+Nur die authentifizierte Erzeugungsantwort und die Lehrkraft-Ansicht zeigen den
+Code; weder öffentliche Kursdaten noch Statusabfragen oder Logs enthalten ihn.
+SQLite speichert SHA-256-Hash, Ablaufzeit, Generation und gehashte Sitzungstokens.
+Nach einem Seitenneuladen lässt sich der Code nicht wieder auslesen: ggf. erneuern.
+
+Auch die Beameransicht benötigt den Code. Beitritt erfolgt als JSON über
+`POST /api/join`, niemals in einer URL. Das hostgebundene HttpOnly-/SameSite=Strict-/
+Secure-Cookie gilt höchstens bis zum Einladungsablauf. Maximal 60 persistierte
+Teilnahmesitzungen; erneuter Beitritt mit gültigem Cookie verwendet dieselbe
+Sitzung und deren Budget. Abgelaufene Einträge werden beim Beitritt entfernt;
+bei voller Registrierung folgt 429, ohne aktive Teilnehmende zu verdrängen.
+Erneuern oder Widerrufen entwertet sofort alle bisherigen Teilnahmesitzungen,
+auch nach Neustarts. Wettbewerb, Einreichungen, Bot-Claim-Tokens und Replays
+bleiben unverändert. Bereits autorisierte laufende Arbeit wird nicht abgebrochen,
+bereits heruntergeladene Daten können nicht zurückgerufen werden. Nach dem
+nächsten UI-Poll erscheint wieder das Beitrittsformular; getippter Editorcode
+und lokale Bot-Schlüssel bleiben erhalten.
+
+Im Schutzmodus benötigen Kurs-/Replay-Lesezugriffe sowie Einreichungs-/Testanfragen
+ein gültiges Cookie oder den korrekten `X-Admin-Token`. Cookies geben **keine**
+Lehrkraft-Rechte; private Testrennen brauchen weiterhin den eigenen Bot-Claim.
+Lehrkraft-Lesezugriffe senden den Adminheader. Pro authentifizierter Sitzung
+sind in festen 60-Sekunden-Fenstern standardmäßig 30 Einreichungs- und 6 Testversuche
+zulässig; diese Budgets überstehen Neustarts. Zusätzlich gelten die bisherigen
+prozessweiten 240/60 Budgets, auch für Adminanfragen, sowie 120 Beitrittsversuche
+pro Minute. HTTP 429 enthält `Retry-After`. Ungültige Versuche zählen ebenfalls.
+Keine IP-Budgets und kein Vertrauen in `X-Forwarded-For` oder Cloudflare-IP-Header.
+Die globalen Zähler starten nach Neustart neu. Nur einen Appworker verwenden und
+die Serveruhr korrekt halten. Cookie-Löschen kann einen weiteren der 60 Plätze
+belegen: Der gemeinsame Code ist keine Personenidentität oder perfekte Fairness.
+
+Öffentlich: `GET /api/access` liefert nur `required`/`authorized`, `GET /api/health`
+nur `sandbox.available` (auch der Container-Healthcheck verwendet diesen Endpunkt).
+Nur mit Adminheader: `GET /api/admin/access/invitation` (aktiv, Generation, Ablauf),
+`POST /api/admin/access/invitation` mit `{"duration_seconds":7200}` oder `{}` und
+`POST /api/admin/access/revoke`. Ein vollständiger Kursreset löscht auch den
+Zugangsbestand; für zerstörungsfreien Widerruf den separaten Widerruf verwenden.
+
+**Keine Freigabe für anonymen öffentlichen Codebetrieb:** Docker-Socket und
+Hostrisiken bleiben bestehen. Edge-Schutz, direkte Origin-Absicherung, HTTPS und
+Ausführungsisolation sind separat zu prüfen. Die Einrichtung von ausschließlich
+für Lehrkräfte geltendem Cloudflare Access für den gesamten Host liegt außerhalb
+dieser Funktion. Siehe [SECURITY_PREPARATION.md](SECURITY_PREPARATION.md).
+Die isolierten Tests in `tests/test_class_access*.py` verwenden echte Chromium-
+Browser mit tatsächlicher CSP, aber injizierte Fake-Rennen/-Sandboxfunktionen:
+Sie belegen keine neue Docker-Ausführung oder produktive Bereitstellung.
+
 ## Python-Schnittstelle für die Lernenden
 
 Die Startvorlage gibt es auf der Website. Pro Zug liest ein Programm zwei Zeilen:

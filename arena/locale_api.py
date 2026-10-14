@@ -7,6 +7,9 @@ from urllib.parse import parse_qs
 
 
 MESSAGES = {
+    "Classroom access required.": "Bitte der Klasse mit dem Einladungscode beitreten.",
+    "Invitation is invalid or expired.": "Der Einladungscode ist ungültig oder abgelaufen.",
+    "Classroom participant capacity reached.": "Alle Teilnahmeplätze sind belegt.",
     "Request origin is not allowed.": "Diese Anfrage stammt nicht von einer erlaubten Webseite.",
     "Request hostname is not allowed.": "Diese Serveradresse ist nicht erlaubt.",
     "Too many requests. Wait and try again.": "Zu viele Anfragen. Warte kurz und versuche es erneut.",

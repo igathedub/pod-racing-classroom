@@ -17,6 +17,7 @@ from .http_security import (HTTPSecurityMiddleware, RequestBudget, configured_ho
                             configured_request_limits)
 from .locale_api import (LanguageHeadersMiddleware, language_for, localize_replay,
                          localize_rules, localize_state, translate, translate_detail)
+from .class_access import ClassAccess, COOKIE, settings
 from .store import Store
 from .tournament import CompetitionError, Tournament
 
@@ -75,6 +76,10 @@ class SessionStart(JSONModel):
     duration_seconds: StrictInt = Field(default=7200, ge=1, le=86400)
 
 
+class Join(JSONModel):
+    code: str = Field(min_length=1, max_length=128)
+
+
 class Reset(JSONModel):
     confirm: str
 
@@ -126,7 +131,11 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
     public_origins = configured_origins()
     allowed_hosts = configured_hosts()
     request_budget = RequestBudget(configured_request_limits())
+    access_flags, access_limits = settings()
+    access_required = access_flags['POD_CLASS_ACCESS_REQUIRED']
+    request_budget.limits['/api/join'] = access_limits['POD_JOIN_PER_MINUTE']
     store = Store(data_dir)
+    classroom_access = ClassAccess(store)
     tournament = Tournament(store, race_fn=race_fn, tracks_fn=tracks_fn, sandbox_fn=sandbox_fn)
     application = FastAPI(title="Pod Racing Classroom", docs_url=None, redoc_url=None)
     application.state.store = store
@@ -159,7 +168,51 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
         if not x_admin_token or not secrets.compare_digest(x_admin_token.encode("utf-8"), store.admin_token.encode("utf-8")):
             raise HTTPException(401, "Teacher token required.")
 
-    @application.get("/api/state")
+    def is_admin(request):
+        token = request.headers.get('x-admin-token', '')
+        return bool(token and secrets.compare_digest(token.encode(), store.admin_token.encode()))
+
+    def participant(request: Request):
+        if not access_required or is_admin(request):
+            return
+        token = request.cookies.get(COOKIE)
+        if not classroom_access.valid(token):
+            raise HTTPException(401, 'Classroom access required.')
+        limits = {'/api/submissions': access_limits['POD_PARTICIPANT_SUBMISSIONS_PER_MINUTE'],
+                  '/api/practice': access_limits['POD_PARTICIPANT_PRACTICE_PER_MINUTE']}
+        if request.method == 'POST' and request.url.path in limits:
+            classroom_access.consume(token, request.url.path, limits[request.url.path])
+
+    @application.get('/api/health')
+    def health():
+        return {'sandbox': {'available': bool(tournament.sandbox_status()['available'])}}
+
+    @application.get('/api/access')
+    def access(request: Request):
+        authorized = not access_required or is_admin(request) or bool(classroom_access.valid(request.cookies.get(COOKIE)))
+        return {'required': access_required, 'authorized': authorized}
+
+    @application.get('/api/admin/access/invitation', dependencies=[Depends(admin)])
+    def invitation_status():
+        return classroom_access.status()
+
+    @application.post('/api/admin/access/invitation', dependencies=[Depends(admin)])
+    def invitation_create(body: SessionStart):
+        return classroom_access.rotate(body.duration_seconds)
+
+    @application.post('/api/admin/access/revoke', dependencies=[Depends(admin)])
+    def invitation_revoke():
+        return classroom_access.revoke()
+
+    @application.post('/api/join')
+    def join(body: Join, request: Request):
+        token, expires = classroom_access.join(body.code, request.cookies.get(COOKIE))
+        response = JSONResponse({'authorized': True})
+        response.set_cookie(COOKIE, token, max_age=max(1, int(expires - time.time())),
+                            httponly=True, secure=access_flags['POD_CLASS_COOKIE_SECURE'], samesite='strict', path='/')
+        return response
+
+    @application.get("/api/state", dependencies=[Depends(participant)])
     def state(request: Request):
         with tournament.lock:
             result = {"session": tournament.session(), "submissions": store.submissions(),
@@ -169,11 +222,11 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
         result["sandbox"] = tournament.sandbox_status()
         return localize_state(result, language_for(request))
 
-    @application.post("/api/submissions")
+    @application.post("/api/submissions", dependencies=[Depends(participant)])
     def submit(body: Submission):
         return tournament.submit(body.alias, body.code, body.claim_token)
 
-    @application.post("/api/practice")
+    @application.post("/api/practice", dependencies=[Depends(participant)])
     def practice(body: Practice, request: Request):
         return localize_replay(tournament.practice(body.alias, body.claim_token), language_for(request))
 
@@ -198,7 +251,7 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                 "limits": {"code_bytes": 32768, "submissions": 60, "alias_characters": 24}}
         return localize_rules(result, language_for(request))
 
-    @application.get("/api/replays/{replay_id}")
+    @application.get("/api/replays/{replay_id}", dependencies=[Depends(participant)])
     def replay(replay_id: str, request: Request):
         result = store.read_replay(replay_id)
         if result is None:

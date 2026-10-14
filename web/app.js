@@ -54,11 +54,12 @@
     try {
       const headers = { Accept: 'application/json', 'Accept-Language': window.PodLocale.language };
       if (body !== undefined) headers['Content-Type'] = 'application/json';
-      if (admin) { if (view !== 'teacher' || !adminToken) throw localizedError(t('Enter the teacher secret first.')); headers['X-Admin-Token'] = adminToken; }
+      if (admin && (view !== 'teacher' || !adminToken)) throw localizedError(t('Enter the teacher secret first.'));
+      if (view === 'teacher' && adminToken) headers['X-Admin-Token'] = adminToken;
       const response = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal, credentials: 'same-origin', cache: 'no-store' });
       let data;
       try { data = await response.json(); } catch { data = null; }
-      if (!response.ok) { const error = localizedError(errorText(data, response.status)); error.status = response.status; throw error; }
+      if (!response.ok) { if (response.status === 401 && (path === '/api/state' || path === '/api/submissions' || path === '/api/practice' || path.startsWith('/api/replays/'))) lockClassroom(); const error = localizedError(errorText(data, response.status)); error.status = response.status; throw error; }
       if (data === null) throw localizedError(t('The server returned an unreadable response.'));
       return data;
     } catch (error) {
@@ -104,6 +105,9 @@
     $('reset').disabled = !adminReady;
     $('inspect-code').disabled = !app.online || !adminToken || app.adminBusy || !$('inspect-select').value;
     $('confirm-reset').disabled = app.adminBusy;
+    const invitationReady = view === 'teacher' && app.online && Boolean(adminToken) && !app.adminBusy;
+    $('create-invitation').disabled = !invitationReady;
+    $('revoke-invitation').disabled = !invitationReady;
   }
   function syncSelect(id, items, emptyLabel, label) {
     const select = $(id);
@@ -174,12 +178,33 @@
     document.querySelector('.sandbox-status').hidden = view !== 'teacher' && Boolean(app.state?.sandbox?.available);
     $('final-hint').hidden = app.state?.session?.status !== 'qualified';
   }
+  function lockClassroom() {
+    document.body.dataset.access = 'unauthorized';
+    $('join-panel').hidden = view === 'teacher';
+    app.online = false; app.state = null; clearReplay();
+    renderRoster(); renderRankings(); updateControls();
+    text('entry-count', '—'); text('session-status', t('Classroom access required.'));
+    $('replay-select').replaceChildren();
+    delete $('replay-select').dataset.signature;
+    if (view === 'teacher') { $('teacher-access').open = true; text('invitation-code', ''); text('invitation-status', ''); $('inspected-code').textContent = ''; }
+  }
+  $('join-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    try {
+      await api('/api/join', { method: 'POST', body: { code: $('join-code').value.trim() } });
+      $('join-code').value = ''; message('join-message', ''); await pollState();
+    } catch (error) { message('join-message', error.localized || error.message, 'error'); }
+  });
   async function pollState() {
     if (app.stateBusy) return;
     app.stateBusy = true;
     const requestLanguage = window.PodLocale.language;
     try {
+      const access = await api('/api/access');
+      if (!access.authorized) { lockClassroom(); return; }
+      document.body.dataset.access = 'authorized'; $('join-panel').hidden = true;
       const state = await api('/api/state');
+      if (view === 'teacher' && adminToken) { const invitation = await api('/api/admin/access/invitation', { admin: true }); text('invitation-status', t(invitation.active ? 'Invitation active until {time}' : 'No active invitation', { time: invitation.active ? new Date(invitation.expires_at * 1000).toLocaleString(window.PodLocale.language) : '' })); }
       if (requestLanguage !== window.PodLocale.language) return;
       if (!state.session || !Array.isArray(state.submissions) || !state.sandbox || !state.job) throw localizedError(t('The classroom state is incomplete.'));
       app.state = state; app.online = true;
@@ -549,8 +574,8 @@
     $('teacher-access').open = !adminToken;
     text('auth-status', adminToken ? t('Key saved in this tab. Authorization is checked by the server on each admin request.') : t('Enter the teacher secret to enable controls.')); updateControls();
   }
-  $('admin-auth').addEventListener('submit', event => { event.preventDefault(); adminToken = $('admin-token').value.trim(); const saved = safeSet(sessionStorage, 'pod-lab:admin', adminToken); authStatus(); if (!saved) text('auth-status', t('Browser storage is blocked. Key kept only until this page reloads.')); });
-  $('forget-key').addEventListener('click', () => { adminToken = ''; safeSet(sessionStorage, 'pod-lab:admin', ''); $('inspected-code').textContent = ''; $('inspected-code').hidden = true; authStatus(); });
+  $('admin-auth').addEventListener('submit', event => { event.preventDefault(); adminToken = $('admin-token').value.trim(); const saved = safeSet(sessionStorage, 'pod-lab:admin', adminToken); authStatus(); if (!saved) text('auth-status', t('Browser storage is blocked. Key kept only until this page reloads.')); pollState(); });
+  $('forget-key').addEventListener('click', () => { adminToken = ''; text('invitation-code', ''); text('invitation-status', ''); safeSet(sessionStorage, 'pod-lab:admin', ''); $('inspected-code').textContent = ''; $('inspected-code').hidden = true; authStatus(); pollState(); });
   async function adminAction(path, body, success) {
     if (app.adminBusy) return false;
     app.adminBusy = true; updateControls(); message('admin-message', t('Sending request…'));
@@ -562,6 +587,19 @@
       message('admin-message', error.localized || error.message, 'error'); if (error.status === 401 || error.status === 403) { $('teacher-access').open = true; text('auth-status', t('The server rejected this key. Check the secret in the server console.')); } await pollState(); return false;
     } finally { app.adminBusy = false; updateControls(); }
   }
+  async function invitationAction(revoke) {
+    if (app.adminBusy || !adminToken) return;
+    const duration = Number($('invitation-duration').value);
+    if (!revoke && (!Number.isInteger(duration) || duration < 1 || duration > 86400)) { message('invitation-status', t('Use 1–86400 seconds.'), 'error'); return; }
+    app.adminBusy = true; updateControls();
+    try {
+      const result = await api(revoke ? '/api/admin/access/revoke' : '/api/admin/access/invitation', { method: 'POST', admin: true, body: revoke ? {} : { duration_seconds: duration } });
+      text('invitation-code', revoke ? '' : result.code); await pollState();
+    } catch (error) { message('invitation-status', error.localized || error.message, 'error'); }
+    finally { app.adminBusy = false; updateControls(); }
+  }
+  $('create-invitation').addEventListener('click', () => invitationAction(false));
+  $('revoke-invitation').addEventListener('click', () => invitationAction(true));
   $('start-session').addEventListener('click', () => adminAction('/api/admin/session/start', { duration_seconds: 7200 }, t('Coding session opened.')));
   $('close-session').addEventListener('click', () => adminAction('/api/admin/session/close', {}, t('Submission session closed.')));
   $('seed-demo').addEventListener('click', () => adminAction('/api/admin/demo', {}, t('Example bots inserted. Run qualification to produce actual results.')));

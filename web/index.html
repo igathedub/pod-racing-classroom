@@ -10,7 +10,7 @@
   <script src="/assets/i18n.js" defer></script>
   <script src="/assets/app.js" defer></script>
 </head>
-<body>
+<body data-access="pending">
   <a class="skip-link" href="#main" data-i18n="Skip to arena">Skip to arena</a>
   <header class="site-header">
     <a class="wordmark" href="/" aria-label="Pod Lab student arena" data-i18n-aria-label="Pod Lab student arena"><span class="mark" aria-hidden="true">P/</span><span>POD <strong>LAB</strong><small data-i18n="CLASSROOM ARENA">CLASSROOM ARENA</small></span></a>
@@ -23,6 +23,13 @@
     <div class="connection"><span id="connection-dot" class="status-dot"></span><span id="connection-text" data-i18n="Connecting">Connecting</span></div>
   </header>
   <main id="main">
+    <section id="join-panel" class="panel" hidden>
+      <form id="join-form" class="admin-auth">
+        <label for="join-code" data-i18n="Classroom invitation code">Classroom invitation code</label>
+        <div class="input-action"><input id="join-code" type="password" autocomplete="off" maxlength="128" required><button type="submit" data-i18n="Join classroom">Join classroom</button></div>
+        <p id="join-message" class="form-message" role="status"></p>
+      </form>
+    </section>
     <section class="session-strip" aria-label="Session status" data-i18n-aria-label="Session status">
       <div><span class="eyebrow" data-i18n="SUBMISSION WINDOW">SUBMISSION WINDOW</span><strong id="session-status" data-i18n="Connecting to classroom…">Connecting to classroom…</strong></div>
       <div class="session-clock"><span id="countdown-label" class="eyebrow" data-i18n="Coding session">Coding session</span><time id="countdown">--:--:--</time></div>
@@ -83,6 +90,13 @@ opponent_x opponent_y</pre><p data-i18n="Print one command and flush:">Print one
       <aside class="role-panel panel" id="teacher-panel" aria-labelledby="teacher-heading" hidden>
         <div class="panel-heading"><div><span class="eyebrow" data-i18n="CONTROL ROOM">CONTROL ROOM</span><h2 id="teacher-heading" data-i18n="Teacher console">Teacher console</h2></div><span class="badge" data-i18n="ADMIN">ADMIN</span></div>
         <details id="teacher-access" class="help-block" open><summary data-i18n="Teacher access">Teacher access</summary><form id="admin-auth" class="admin-auth"><label for="admin-token" data-i18n="Teacher secret">Teacher secret</label><div class="input-action"><input id="admin-token" type="password" autocomplete="off" placeholder="From the server console" data-i18n-placeholder="From the server console" required><button type="submit" data-i18n="Use key">Use key</button></div><p class="field-hint" data-i18n="Kept in this tab only. Sent as an admin header, never in a URL.">Kept in this tab only. Sent as an admin header, never in a URL.</p><button id="forget-key" class="text-button" type="button" data-i18n="Forget key">Forget key</button><p id="auth-status" class="field-hint" role="status" data-i18n="Enter the teacher secret to enable controls.">Enter the teacher secret to enable controls.</p></form></details>
+        <details id="invitation-controls" class="help-block"><summary data-i18n="Classroom invitations">Classroom invitations</summary><div class="help-content">
+          <label for="invitation-duration" data-i18n="Access duration (seconds)">Access duration (seconds)</label>
+          <input id="invitation-duration" type="number" min="1" max="86400" step="1" value="7200">
+          <div class="button-pair"><button id="create-invitation" type="button" disabled data-i18n="Generate / renew code">Generate / renew code</button><button id="revoke-invitation" type="button" disabled data-i18n="Revoke access">Revoke access</button></div>
+          <p class="field-hint" data-i18n="Renewing or revoking signs out all participants. Bot claims and competition data are kept.">Renewing or revoking signs out all participants. Bot claims and competition data are kept.</p>
+          <output id="invitation-code" class="invitation-code"></output><p id="invitation-status" class="field-hint" role="status"></p>
+        </div></details>
         <div class="teacher-actions">
           <h3 data-i18n="Coding session">Coding session</h3>
           <div class="button-pair"><button id="start-session" class="primary" type="button" disabled data-i18n="Open coding session">Open coding session</button><button id="close-session" class="quiet" type="button" disabled data-i18n="Close now">Close now</button></div>

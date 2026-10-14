@@ -2,6 +2,19 @@
 (() => {
   'use strict';
   const de = {
+  "Classroom invitations": "Einladungen für die Klasse",
+  "Access duration (seconds)": "Zugangszeit (Sekunden)",
+  "Generate / renew code": "Code erzeugen / erneuern",
+  "Revoke access": "Zugang widerrufen",
+  "Renewing or revoking signs out all participants. Bot claims and competition data are kept.": "Erneuern oder Widerrufen meldet alle Teilnehmenden ab. Bot-Schlüssel und Wettbewerbsdaten bleiben erhalten.",
+  "Invitation active until {time}": "Einladung gültig bis {time}",
+  "No active invitation": "Keine aktive Einladung",
+  "Use 1–86400 seconds.": "Wähle 1–86400 Sekunden.",
+  "Classroom invitation code": "Einladungscode für die Klasse",
+  "Join classroom": "Der Klasse beitreten",
+  "Classroom access required.": "Bitte der Klasse mit dem Einladungscode beitreten.",
+  "Invitation is invalid or expired.": "Der Einladungscode ist ungültig oder abgelaufen.",
+  "Classroom participant capacity reached.": "Alle Teilnahmeplätze sind belegt.",
   "Skip to arena": "Zur Rennarena",
   "Pod Lab student arena": "Pod Lab – Rennarena für Lernende",
   "CLASSROOM ARENA": "RENNARENA IM KLASSENZIMMER",
