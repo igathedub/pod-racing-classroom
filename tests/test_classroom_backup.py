@@ -274,6 +274,11 @@ def test_backup_preserves_original_app_on_failure_and_retains_lock(tmp_path, mon
     with pytest.raises(mod.BackupError):
         mod.backup(docker, "classroom", "app", "exact_data", tmp_path / "fail_backup", gate_container="gate")
     assert LOCK_ROOT_PATH.exists() and any(LOCK_ROOT_PATH.iterdir())
+    lock = next(LOCK_ROOT_PATH.iterdir())
+    assert (lock / 'owner').is_file()
+    assert fake.containers[APP_ID]['State']['Running']
+    assert fake.containers[GATE_ID]['State']['Running']
+    assert (tmp_path / 'fail_backup' / '.incomplete').is_file()
 
 
 
