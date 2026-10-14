@@ -83,8 +83,9 @@ class BackupError(Exception):
 
 def snapshot_stats(root):
     """Read SQLite without application startup (which would mutate job state)."""
+    from contextlib import closing
     root = Path(root)
-    with sqlite3.connect((root / "classroom.sqlite3").resolve().as_uri() + "?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect((root / "classroom.sqlite3").resolve().as_uri() + "?mode=ro", uri=True)) as db:
         db.execute("PRAGMA query_only=ON")
         if db.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
             raise BackupError("SQLite integrity check failed")
@@ -202,7 +203,9 @@ def _windows_require_private_acl(path):
     acl = json.loads(result.stdout)
     if acl["owner"] != acl["user"]:
         raise BackupError("Windows ACL owner does not match current user; path is not private")
-    unexpected = set(acl.get("allow", [])) - {acl["user"], _WIN_SYSTEM, _WIN_ADMINS}
+    # OWNER RIGHTS denotes the object's current owner, already checked above.
+    # Python's native mkdir(0700) uses this SID on Windows.
+    unexpected = set(acl.get("allow", [])) - {acl["user"], _WIN_SYSTEM, _WIN_ADMINS, "S-1-3-4"}
     if unexpected:
         raise BackupError(
             "Windows ACL grants access to unintended principals; require owner-only ownership"
