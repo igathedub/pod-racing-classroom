@@ -21,12 +21,14 @@ from .locale_api import (LanguageHeadersMiddleware, language_for, localize_repla
                          localize_rules, localize_state, translate, translate_detail)
 from .class_access import ClassAccess, COOKIE, settings
 from .base_path import application_path, configured_base_path
+from .protocol import configured_input_protocol
 from .store import Store
 from .tournament import CompetitionError, Tournament
 
 ROOT = Path(__file__).resolve().parents[1]
 # Exact upstream snapshot and attribution: examples/starters/05_Nadja.README.md.
 STARTER = (ROOT / "examples" / "starters" / "05_Nadja.py").read_text(encoding="utf-8")
+CHECKPOINT_STARTER = (ROOT / "examples" / "starters" / "05_Nadja_checkpoint.py").read_text(encoding="utf-8")
 
 
 class JSONModel(BaseModel):
@@ -120,6 +122,8 @@ class BoundedJSONMiddleware:
 
 def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
     base_path = configured_base_path()
+    input_protocol = configured_input_protocol()
+    starter_source = CHECKPOINT_STARTER if input_protocol == 'checkpoint-only' else STARTER
     # Escape underscores before separators so nested paths cannot collide.
     cookie_name = COOKIE + '_' + base_path[1:].replace('_', '_u').replace('/', '_s') if base_path else COOKIE
     public_origins = configured_origins()
@@ -130,7 +134,8 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
     request_budget.limits['/api/join'] = access_limits['POD_JOIN_PER_MINUTE']
     store = Store(data_dir)
     classroom_access = ClassAccess(store)
-    tournament = Tournament(store, race_fn=race_fn, tracks_fn=tracks_fn, sandbox_fn=sandbox_fn)
+    tournament = Tournament(store, race_fn=race_fn, tracks_fn=tracks_fn, sandbox_fn=sandbox_fn,
+                            input_protocol=input_protocol)
     application = FastAPI(title="Pod Racing Classroom", docs_url=None, redoc_url=None)
     application.state.store = store
     application.state.tournament = tournament
@@ -228,7 +233,9 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
     @application.get("/api/starter")
     def starter(request: Request):
         introduction = "# Lies in jedem Spielzug zwei Zeilen und gib einen Fahrbefehl aus.\n# Ändere den Schub und die Zielkoordinaten, um deinen Bot zu verbessern.\n" if language_for(request) == "de" else "# Read two lines each turn and print one driving command.\n# Change the thrust and target coordinates to improve your bot.\n"
-        return PlainTextResponse(introduction + STARTER, media_type="text/x-python", headers={"Content-Disposition": 'attachment; filename="starter.py"'})
+        if input_protocol == 'checkpoint-only':
+            introduction = introduction.replace('zwei Zeilen', 'eine Zeile').replace('two lines', 'one line')
+        return PlainTextResponse(introduction + starter_source, media_type="text/x-python", headers={"Content-Disposition": 'attachment; filename="starter.py"'})
 
     @application.get("/api/rules")
     def rules(request: Request):
@@ -244,6 +251,10 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                 "physics": "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD lasts three turns with no thrust and heavier mass.",
                 "security": "Python syntax checked without execution; bot execution only in restricted Docker.",
                 "limits": {"code_bytes": 32768, "submissions": 60, "alias_characters": 24}}
+        result['protocol']['name'] = input_protocol
+        if input_protocol == 'checkpoint-only':
+            result['protocol']['input'] = result['protocol']['input'][:1]
+            result['protocol'].pop('opponent')
         return localize_rules(result, language_for(request))
 
     @application.get("/api/replays/{replay_id}", dependencies=[Depends(participant)])
@@ -285,7 +296,10 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
             tournament.require_idle()
             if tournament.session()["status"] != "waiting" or store.submissions():
                 raise HTTPException(409, "Demo requires an empty waiting classroom. Reset first.")
-            paths = sorted((ROOT / "examples").glob("*.py"))
+            examples = ROOT / 'examples'
+            if input_protocol == 'checkpoint-only':
+                examples = examples / 'checkpoint_only'
+            paths = sorted(examples.glob("*.py"))
             if len(paths) < 6:
                 raise HTTPException(503, "Six demo example files are not installed.")
             entries = []
@@ -318,7 +332,7 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
         # Server-side default avoids a delayed fetch overwriting a student's edits.
         # Escape source so Python strings/comments can never terminate the textarea.
         html = re.sub(r'(<textarea\b[^>]*\bid="code"[^>]*>).*?(</textarea>)',
-                      lambda match: match[1] + escape(STARTER) + match[2],
+                      lambda match: match[1] + escape(starter_source) + match[2],
                       html, count=1, flags=re.DOTALL)
         if base_path:
             # Trusted, validated config only; no inline scripts or <base> (CSP).
@@ -326,6 +340,16 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                                 f'<body data-access="pending" data-base-path="{base_path}">')
             html = re.sub(r'((?:href|src)=")(/[^"\n]*)"',
                           lambda match: match[1] + base_path + match[2] + '"', html)
+        html = html.replace('<body ', f'<body data-input-protocol="{input_protocol}" ', 1)
+        if input_protocol == 'checkpoint-only':
+            notice = 'Checkpoint-only test: read one line per turn. Old bots that read an opponent line must be updated.'
+            html = html.replace('<form id="submission-form">',
+                                f'<p id="protocol-notice" class="field-hint" data-i18n="{notice}">{notice}</p><form id="submission-form">')
+            html = html.replace('data-i18n=" two lines">two lines', 'data-i18n=" one line">one line')
+            html = html.replace('relative_angle\nopponent_x opponent_y</pre>', 'relative_angle</pre>')
+            physics = 'Checkpoint-only input; racing physics and collisions are unchanged.'
+            html = re.sub(r'<p><span data-i18n-fragment data-i18n="In a final with up to five pods, line two describes your">.*?</p>',
+                          f'<p data-i18n="{physics}">{physics}</p>', html, count=1)
         return HTMLResponse(html)
 
     if base_path:

@@ -2,6 +2,9 @@
 (() => {
   'use strict';
   const de = {
+  " one line": " eine Zeile",
+  "Checkpoint-only test: read one line per turn. Old bots that read an opponent line must be updated.": "Einzeilen-Test: Lies pro Spielzug nur eine Zeile. Alte Bots mit einer zweiten Gegner-Eingabe müssen angepasst werden.",
+  "Checkpoint-only input; racing physics and collisions are unchanged.": "Einzeilige Eingabe; Rennphysik und Kollisionen bleiben unverändert.",
   "Classroom invitations": "Einladungen für die Klasse",
   "Access duration (seconds)": "Zugangszeit (Sekunden)",
   "Generate / renew code": "Code erzeugen / erneuern",

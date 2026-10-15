@@ -1,10 +1,13 @@
 """One durable competition at a time; student code is only passed to the engine."""
 from __future__ import annotations
 
+from functools import partial
 import math
 import threading
 import time
 import uuid
+
+from .protocol import configured_input_protocol
 
 
 class CompetitionError(Exception):
@@ -50,8 +53,9 @@ def rank_results(snapshot, race_results, max_turns=700):
 
 
 class Tournament:
-    def __init__(self, store, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
+    def __init__(self, store, *, race_fn=None, tracks_fn=None, sandbox_fn=None, input_protocol=None):
         self.store = store
+        self.input_protocol = configured_input_protocol(input_protocol)
         self.lock = threading.RLock()
         self.race_fn = race_fn
         self.tracks_fn = tracks_fn
@@ -152,7 +156,7 @@ class Tournament:
         race_fn = self.race_fn
         if race_fn is None:
             from .engine import run_race
-            race_fn = run_race
+            race_fn = partial(run_race, input_protocol=self.input_protocol)
         try:
             result = race_fn([entry, reference], track, laps=2, max_turns=700, collisions=False)
         except Exception as exc:
@@ -166,6 +170,7 @@ class Tournament:
         winner = next((row for row in results if row.get("id") == result.get("winner_id") and row.get("finished") and not row.get("disqualified")), None)
         return {"id": str(uuid.uuid4()), "kind": "practice", "title": f"Practice · {entry['alias']}", "track": track,
                 "laps": 2, "max_turns": 700, "collisions": False, "status": "finished",
+                "input_protocol": self.input_protocol,
                 "winner_id": winner["id"] if winner else None,
                 "entries": [{"id": item["id"], "alias": item["alias"]} for item in (entry, reference)],
                 "frames": [self._safe_frame(frame) for frame in raw_frames], "results": results}
@@ -249,6 +254,7 @@ class Tournament:
     def _race(self, entries, track, kind, title, collisions):
         replay_id = str(uuid.uuid4())
         replay = {"id": replay_id, "track": track, "laps": 2, "max_turns": 700, "collisions": collisions,
+                  "input_protocol": self.input_protocol,
                   "status": "running", "winner_id": None, "entries": [{"id": e["id"], "alias": e["alias"]} for e in entries], "frames": [], "results": []}
         self.store.add_replay(replay_id, title, kind)
         self.store.write_replay(replay_id, replay)
@@ -268,7 +274,7 @@ class Tournament:
         race_fn = self.race_fn
         if race_fn is None:
             from .engine import run_race
-            race_fn = run_race
+            race_fn = partial(run_race, input_protocol=self.input_protocol)
         result = race_fn(entries, track, laps=2, max_turns=700, collisions=collisions, on_frame=on_frame)
         raw_frames = result.get("frames", [])
         if len(raw_frames) > 701 or any(len(frame["pods"]) > 5 for frame in raw_frames):

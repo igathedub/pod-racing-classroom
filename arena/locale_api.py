@@ -137,7 +137,8 @@ def localize_rules(rules: dict, language: str) -> dict:
     for field in ("title", "qualification", "ranking", "final", "physics", "security"):
         result[field] = translate(result[field], language)
     for field in ("thrust", "opponent", "flush"):
-        result["protocol"][field] = translate(result["protocol"][field], language)
+        if field in result["protocol"]:
+            result["protocol"][field] = translate(result["protocol"][field], language)
     return result
 
 
