@@ -75,3 +75,28 @@ def test_effective_profiles_have_only_loopback_gate_port(tmp_path):
         assert config['services']['sandbox']['image']=='pod-test-bot:synthetic'
         assert config['volumes']['classroom-data']['external'] is True
         assert config['volumes']['classroom-data']['name']=='synthetic-external-volume'
+
+
+@pytest.mark.skipif(not __import__('shutil').which('docker'), reason='Compose CLI unavailable')
+@pytest.mark.parametrize('role', ['primary', 'backup'])
+@pytest.mark.parametrize('requested', [None, 'checkpoint-only', 'legacy', '', 'invalid-mode'])
+def test_release_profiles_forward_input_protocol_without_silent_fallback(tmp_path, role, requested):
+    # Parse synthetic configuration only: no daemon, live env, or real secrets.
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith(('POD_', 'COMPOSE_'))}
+    if requested is not None:
+        env['POD_INPUT_PROTOCOL'] = requested
+    private = tmp_path / 'synthetic.env'
+    private.write_text('POD_APP_IMAGE=pod-test-app:synthetic\nPOD_BOT_IMAGE=pod-test-bot:synthetic\n'
+                       'POD_DATA_VOLUME=synthetic-volume\nPOD_SITE_PASSWORD_HASH=synthetic-only\n'
+                       'POD_BACKUP_EDGE_SECRET=synthetic-only\n')
+    args = ['docker', 'compose', '--project-name', 'synthetic-' + role,
+            '--project-directory', str(ROOT), '--env-file', str(private)]
+    for name in ['compose.yaml', 'compose.password.yaml', 'deploy/compose.codeweek-common.yaml',
+                 'deploy/compose.codeweek-' + role + '.yaml']:
+        args.extend(['-f', str(ROOT / name)])
+    result = subprocess.run(args + ['config', '--format', 'json'], env=env,
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, 'Synthetic Compose parsing failed (output withheld)'
+    actual = json.loads(result.stdout)['services']['classroom']['environment']
+    assert actual.get('POD_INPUT_PROTOCOL') == ('legacy' if requested is None else requested)

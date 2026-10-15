@@ -1,5 +1,7 @@
 # Primärserver und Reserve: Wiederherstellung und Updates
 
+Für Feature-Freigabe und versionierten Rollout auf beide Hosts: **[ROLLOUT.md](ROLLOUT.md)**. Die folgenden geschützten Beispielprofile sind keine Anweisung, später bewusst deaktivierte Website-/Klassensperren wieder einzuschalten. Beim Update den tatsächlichen aktuellen Zugangszustand und private Overrides erhalten; historische 401-Abnahmen unten gelten nur für den jeweils geschützten Betriebsmodus.
+
 **GitHub liefert Quellcode und öffentliche Betriebsvorlagen, nicht die Unterrichtsdaten.** Ein vollständiger Wiederaufbau benötigt zusätzlich ein geprüftes, privates Backup des jeweiligen Servers samt Website-/Tunnel-Secrets. Die Reserve ist eine unabhängige Installation, **keine automatische Replikation** des Windows-Datenbestands. Ein Klon allein stellt keine Abgaben, Replays, Lehrkraft- oder Klassenzugänge wieder her.
 
 ## Rollen und Sicherheitsgrenzen

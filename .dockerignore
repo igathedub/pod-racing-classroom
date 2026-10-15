@@ -13,6 +13,8 @@
 !examples/*.py
 !examples/starters/
 !examples/starters/*.py
+!examples/checkpoint_only/
+!examples/checkpoint_only/*.py
 !scripts/
 !scripts/container_entrypoint.py
 !scripts/deployment_probe.py

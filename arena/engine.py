@@ -15,6 +15,7 @@ import random
 import uuid
 
 from arena.bots import BotError, BotMalformed, make_runner
+from arena.protocol import configured_input_protocol
 
 WIDTH = 16000
 HEIGHT = 9000
@@ -238,15 +239,19 @@ def advance_turn(pods: list[Pod], checkpoints: list, *, laps: int = 2,
                 pod.turns = turn
 
 
-def observation(pod: Pod, pods: list[Pod], checkpoints: list) -> str:
+def observation(pod: Pod, pods: list[Pod], checkpoints: list, *,
+                input_protocol: str | None = None) -> str:
+    input_protocol = configured_input_protocol(input_protocol)
     cx, cy = checkpoints[pod.next_checkpoint]
     dx, dy = cx - pod.x, cy - pod.y
     angle = _relative(math.degrees(math.atan2(dy, dx)) - pod.angle)
+    checkpoint_line = (f"{_round(pod.x)} {_round(pod.y)} {_round(cx)} {_round(cy)} "
+                       f"{_round(math.hypot(dx, dy))} {_round(angle)}\n")
+    if input_protocol == "checkpoint-only":
+        return checkpoint_line
     others = [other for other in pods if other is not pod and not other.disqualified]
     opponent = min(others, key=lambda p: ((p.x - pod.x) ** 2 + (p.y - pod.y) ** 2, p.id)) if others else pod
-    return (f"{_round(pod.x)} {_round(pod.y)} {_round(cx)} {_round(cy)} "
-            f"{_round(math.hypot(dx, dy))} {_round(angle)}\n"
-            f"{_round(opponent.x)} {_round(opponent.y)}\n")
+    return checkpoint_line + f"{_round(opponent.x)} {_round(opponent.y)}\n"
 
 
 def _frame(pods: list[Pod], turn: int) -> dict:
@@ -259,7 +264,9 @@ def _frame(pods: list[Pod], turn: int) -> dict:
 
 
 def run_race(entries: list[dict], track: dict, *, laps: int = 2, max_turns: int = 700,
-             collisions: bool = True, on_frame=None, runner_factory=None) -> dict:
+             collisions: bool = True, on_frame=None, runner_factory=None,
+             input_protocol: str | None = None) -> dict:
+    input_protocol = configured_input_protocol(input_protocol)
     if not 1 <= len(entries) <= 60:
         raise ValueError("A race needs 1 to 60 entries")
     if len({entry["id"] for entry in entries}) != len(entries):
@@ -311,7 +318,8 @@ def run_race(entries: list[dict], track: dict, *, laps: int = 2, max_turns: int 
             if not any(p.active for p in pods):
                 break
             # Freeze all observations before any commands/errors mutate state.
-            inputs = [observation(pod, pods, checkpoints) for pod in pods]
+            inputs = [observation(pod, pods, checkpoints, input_protocol=input_protocol)
+                      for pod in pods]
             for index, pod in enumerate(pods):
                 if not pod.active:
                     continue
@@ -354,6 +362,7 @@ def run_race(entries: list[dict], track: dict, *, laps: int = 2, max_turns: int 
                for index, p in enumerate(ordered)]
     winner = next((p.id for p in ordered if p.finished and not p.disqualified), None)
     return {"id": str(uuid.uuid4()), "track": track, "laps": laps, "max_turns": max_turns,
+            "input_protocol": input_protocol,
             "collisions": collisions, "status": "finished", "winner_id": winner,
             "entries": [{"id": p.id, "alias": p.alias} for p in pods],
             "frames": frames, "results": results}
