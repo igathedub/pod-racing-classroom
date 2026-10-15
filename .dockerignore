@@ -11,6 +11,8 @@
 !web/*.css
 !examples/
 !examples/*.py
+!examples/starters/
+!examples/starters/*.py
 !scripts/
 !scripts/container_entrypoint.py
 !scripts/deployment_probe.py

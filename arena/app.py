@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+from html import escape
 from pathlib import Path
 import re
 import secrets
@@ -9,7 +10,7 @@ import time
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -24,20 +25,8 @@ from .store import Store
 from .tournament import CompetitionError, Tournament
 
 ROOT = Path(__file__).resolve().parents[1]
-STARTER = '''import sys
-
-while True:
-    line = sys.stdin.readline()
-    if not line:
-        break
-    x, y, checkpoint_x, checkpoint_y, distance, angle = map(int, line.split())
-    opponent = sys.stdin.readline()
-    if not opponent:
-        break
-    opponent_x, opponent_y = map(int, opponent.split())
-    thrust = 100 if abs(angle) < 90 else 0
-    print(checkpoint_x, checkpoint_y, thrust, flush=True)
-'''
+# Exact upstream snapshot and attribution: examples/starters/05_Nadja.README.md.
+STARTER = (ROOT / "examples" / "starters" / "05_Nadja.py").read_text(encoding="utf-8")
 
 
 class JSONModel(BaseModel):
@@ -325,15 +314,19 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
         path = ROOT / "web" / "index.html"
         if not path.is_file():
             raise HTTPException(503, "Classroom frontend is not installed.")
+        html = path.read_text(encoding="utf-8")
+        # Server-side default avoids a delayed fetch overwriting a student's edits.
+        # Escape source so Python strings/comments can never terminate the textarea.
+        html = re.sub(r'(<textarea\b[^>]*\bid="code"[^>]*>).*?(</textarea>)',
+                      lambda match: match[1] + escape(STARTER) + match[2],
+                      html, count=1, flags=re.DOTALL)
         if base_path:
             # Trusted, validated config only; no inline scripts or <base> (CSP).
-            html = path.read_text(encoding="utf-8")
             html = html.replace('<body data-access="pending">',
                                 f'<body data-access="pending" data-base-path="{base_path}">')
             html = re.sub(r'((?:href|src)=")(/[^"\n]*)"',
                           lambda match: match[1] + base_path + match[2] + '"', html)
-            return HTMLResponse(html)
-        return FileResponse(path, media_type="text/html")
+        return HTMLResponse(html)
 
     if base_path:
         # A real ASGI mount keeps routing and redirect URLs in the namespace.
