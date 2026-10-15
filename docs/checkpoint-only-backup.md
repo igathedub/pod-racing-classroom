@@ -1,8 +1,10 @@
 # Backup-Test: eine Eingabezeile pro Spielzug
 
-## Kein Primär-Rollout
+## Rollout nach Backup-Freigabe
 
-Dieser Branch testet `POD_INPUT_PROTOCOL=checkpoint-only` ausschließlich auf der Mac-Reserve. Ohne explizite Einstellung bleibt das bisherige zweizeilige Protokoll (`legacy`) aktiv. `main` und Windows-Primärserver werden durch den Test nicht umgestellt.
+Der Einzeilenmodus wurde zunächst ausschließlich auf der Mac-Reserve getestet und anschließend vom Betreiber für den Primär-Rollout freigegeben. Diese Freigabe und ein Git-Merge aktualisieren den Windows-Container **nicht automatisch**. Ablauf und Windows-Übergabe stehen in [`deploy/ROLLOUT.md`](../deploy/ROLLOUT.md).
+
+Ohne explizite Einstellung bleibt das bisherige zweizeilige Protokoll (`legacy`) aktiv. Für beide Rollen muss in der jeweiligen bestehenden privaten Deployment-Konfiguration `POD_INPUT_PROTOCOL=checkpoint-only` gesetzt und der Appcontainer kontrolliert neu erstellt werden. Die Basis-Compose-Datei reicht den Wert weiter; spätere lokale Overrides dürfen ihn nicht unbeabsichtigt überschreiben.
 
 Pro Spielzug wird im neuen Modus nur diese Zeile gesendet:
 

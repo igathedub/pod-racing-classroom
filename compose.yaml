@@ -23,6 +23,8 @@ services:
     environment:
       POD_DATA_DIR: /data
       POD_BASE_PATH: "${POD_BASE_PATH:-}"
+      # Preserve an explicit empty value so app startup fails closed.
+      POD_INPUT_PROTOCOL: "${POD_INPUT_PROTOCOL-legacy}"
       POD_BOT_IMAGE: "${POD_BOT_IMAGE:-pod-classroom-bot:local}"
       POD_PUBLIC_ORIGINS: "${POD_PUBLIC_ORIGINS:-}"
       POD_ALLOWED_HOSTS: "${POD_ALLOWED_HOSTS:-}"
