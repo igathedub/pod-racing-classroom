@@ -2,6 +2,13 @@
 (() => {
   'use strict';
   const de = {
+  "Delete": "Löschen",
+  "Delete submission by {alias}": "Abgabe von {alias} löschen",
+  "TEACHER MODERATION": "MODERATION DURCH DIE LEHRKRAFT",
+  "Delete this submission?": "Diese Abgabe löschen?",
+  "Permanently delete submission": "Abgabe endgültig löschen",
+  "Submission deleted. Other pilots are kept.": "Abgabe gelöscht. Die anderen Bots bleiben erhalten.",
+  "This permanently removes this submission and its ownership token, qualification results, and every saved replay containing this pilot (including a shared final). Other submissions remain. Deletion is blocked while a race or practice is running.": "Diese Abgabe und ihr Besitzschlüssel, ihre Qualifikationsergebnisse sowie alle gespeicherten Rennen mit diesem Bot werden endgültig entfernt (auch ein gemeinsames Finale). Andere Abgaben bleiben erhalten. Während eines Rennens oder Testlaufs ist das Löschen gesperrt.",
   " one line": " eine Zeile",
   "Checkpoint-only test: read one line per turn. Old bots that read an opponent line must be updated.": "Einzeilen-Test: Lies pro Spielzug nur eine Zeile. Alte Bots mit einer zweiten Gegner-Eingabe müssen angepasst werden.",
   "Checkpoint-only input; racing physics and collisions are unchanged.": "Einzeilige Eingabe; Rennphysik und Kollisionen bleiben unverändert.",

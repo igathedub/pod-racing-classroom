@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from functools import partial
 import math
+import sqlite3
 import threading
 import time
 import uuid
@@ -130,6 +131,18 @@ class Tournament:
                 raise CompetitionError(409, str(exc)) from exc
             except OverflowError as exc:
                 raise CompetitionError(409, str(exc)) from exc
+
+    def delete_submission(self, submission_id):
+        with self.lock:
+            self.require_idle()
+            if not self.store.valid_id(submission_id):
+                raise CompetitionError(422, "Invalid submission ID.")
+            try:
+                return self.store.delete_submission(submission_id)
+            except LookupError as exc:
+                raise CompetitionError(404, "Submission not found.") from exc
+            except (ValueError, OSError, sqlite3.Error, RecursionError) as exc:
+                raise CompetitionError(409, "Submission could not be deleted safely. Check stored competition data and retry.") from exc
 
     def practice(self, alias, claim_token):
         """Run a student's saved bot against the reference ghost without publishing it."""
