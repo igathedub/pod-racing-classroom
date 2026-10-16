@@ -22,7 +22,7 @@ from .locale_api import (LanguageHeadersMiddleware, language_for, localize_repla
 from .class_access import ClassAccess, COOKIE, settings
 from .base_path import application_path, configured_base_path
 from .protocol import configured_input_protocol
-from .store import Store
+from .store import MAX_SUBMISSIONS, Store
 from .tournament import CompetitionError, Tournament
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -218,7 +218,8 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
             result = {"session": tournament.session(), "submissions": store.submissions(),
                       "leaderboard": store.get("leaderboard", []), "job": store.get("job", store.initial_job()),
                       "active_replay_id": store.get("active_replay_id"), "replays": store.replays(),
-                      "finalists": store.get("finalists", []), "champion": store.get("champion"), "server_time": time.time()}
+                      "finalists": store.get("finalists", []), "champion": store.get("champion"),
+                      "moderation_revision": store.get("moderation_revision", 0), "server_time": time.time()}
         result["sandbox"] = tournament.sandbox_status()
         return localize_state(result, language_for(request))
 
@@ -250,7 +251,7 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                 "final": "Up to five eligible snapshot bots race simultaneously with collisions. At least two needed. Only a valid finisher can become champion.",
                 "physics": "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD lasts three turns with no thrust and heavier mass.",
                 "security": "Python syntax checked without execution; bot execution only in restricted Docker.",
-                "limits": {"code_bytes": 32768, "submissions": 60, "alias_characters": 24}}
+                "limits": {"code_bytes": 32768, "submissions": MAX_SUBMISSIONS, "alias_characters": 24}}
         result['protocol']['name'] = input_protocol
         if input_protocol == 'checkpoint-only':
             result['protocol']['input'] = result['protocol']['input'][:1]
@@ -281,6 +282,10 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
     def final(request: Request):
         job = tournament.start_final()
         return {**job, "message": translate(job["message"], language_for(request))}
+
+    @application.delete("/api/admin/submissions/{submission_id}", dependencies=[Depends(admin)])
+    def delete_submission(submission_id: str):
+        return tournament.delete_submission(submission_id)
 
     @application.get("/api/admin/submissions/{submission_id}", dependencies=[Depends(admin)])
     def submission_source(submission_id: str):

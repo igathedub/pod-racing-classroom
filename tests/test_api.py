@@ -148,9 +148,9 @@ def test_capacity_and_concurrent_claim_protection(api):
         responses = list(executor.map(lambda _: submit(client, "Concurrent"), range(8)))
     assert sum(response.status_code == 200 for response in responses) == 1
     assert sum(response.status_code == 409 for response in responses) == 7
-    for index in range(59):
+    for index in range(99):
         assert submit(client, f"Pilot {index}").status_code == 200
-    assert len(client.get("/api/state").json()["submissions"]) == 60
+    assert len(client.get("/api/state").json()["submissions"]) == 100
     assert submit(client, "Overflow").status_code == 409
     entry = next(response.json() for response in responses if response.status_code == 200)
     assert submit(client, "Concurrent", claim_token=entry["claim_token"]).status_code == 200

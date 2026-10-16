@@ -108,6 +108,9 @@
     $('reset').disabled = !adminReady;
     $('inspect-code').disabled = !app.online || !adminToken || app.adminBusy || !$('inspect-select').value;
     $('confirm-reset').disabled = app.adminBusy;
+    document.querySelectorAll('.delete-submission').forEach(button => { button.disabled = !adminReady; });
+    $('confirm-delete').disabled = !adminReady || !pendingDelete;
+    $('cancel-delete').disabled = app.adminBusy;
     const invitationReady = view === 'teacher' && app.online && Boolean(adminToken) && !app.adminBusy;
     $('create-invitation').disabled = !invitationReady;
     $('revoke-invitation').disabled = !invitationReady;
@@ -133,7 +136,16 @@
     $('roster').dataset.signature = signature;
     $('roster').replaceChildren();
     if (!entries.length) { const li = document.createElement('li'); li.textContent = t('No pilots on the grid yet.'); $('roster').append(li); }
-    for (const entry of entries) { const li = document.createElement('li'); const name = document.createElement('strong'); name.textContent = entry.alias; const version = document.createElement('span'); version.textContent = `v${entry.version}`; li.append(name, version); $('roster').append(li); }
+    for (const entry of entries) {
+      const li = document.createElement('li'); const name = document.createElement('strong'); name.textContent = entry.alias;
+      const version = document.createElement('span'); version.textContent = `v${entry.version}`; li.append(name, version);
+      if (view === 'teacher') {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'danger delete-submission';
+        button.textContent = t('Delete'); button.setAttribute('aria-label', t('Delete submission by {alias}', { alias: entry.alias }));
+        button.addEventListener('click', () => openDeleteDialog(entry)); li.append(button);
+      }
+      $('roster').append(li);
+    }
     syncSelect('inspect-select', entries, t('No submissions'), entry => `${entry.alias} · v${entry.version}`);
   }
   function replayTitle(replay) {
@@ -210,6 +222,12 @@
       if (view === 'teacher' && adminToken) { const invitation = await api('/api/admin/access/invitation', { admin: true }); text('invitation-status', t(invitation.active ? 'Invitation active until {time}' : 'No active invitation', { time: invitation.active ? new Date(invitation.expires_at * 1000).toLocaleString(window.PodLocale.language) : '' })); }
       if (requestLanguage !== window.PodLocale.language) return;
       if (!state.session || !Array.isArray(state.submissions) || !state.sandbox || !state.job) throw localizedError(t('The classroom state is incomplete.'));
+      const changedModeration = app.state && (app.state.moderation_revision || 0) !== (state.moderation_revision || 0);
+      const removedReplay = app.replayId && !app.localReplay && !state.replays?.some(replay => replay.id === app.replayId);
+      if (changedModeration || removedReplay) {
+        clearReplay(); $('inspected-code').textContent = ''; $('inspected-code').hidden = true;
+      }
+      if (pendingDelete && !state.submissions.some(entry => entry.id === pendingDelete.id)) $('delete-dialog').close();
       app.state = state; app.online = true;
       app.clockOffset = Number.isFinite(state.server_time) ? state.server_time - Date.now() / 1000 : 0;
       text('connection-text', t('Server connected')); $('connection-dot').className = 'status-dot online'; notice('connection-error', '');
@@ -230,7 +248,7 @@
     app.bounds = defaultBounds(); updateChampionLabel();
     text('race-heading', t('Waiting for the grid')); text('replay-status', t('NO REPLAY')); $('replay-status').classList.remove('live');
     text('track-name', t('Awaiting race')); text('race-format', '—');
-    $('winner-overlay').hidden = true; $('scrubber').disabled = true; $('play-pause').disabled = true; $('restart').disabled = true;
+    $('winner-overlay').hidden = true; text('winner-name', ''); text('winner-detail', ''); $('scrubber').disabled = true; $('play-pause').disabled = true; $('restart').disabled = true;
     text('turn-label', '0 / 0'); text('race-time', '00:00.0'); notice('replay-error', ''); renderEmptyState(); renderRankings();
     updateViewFocus();
   }
@@ -579,11 +597,13 @@
   }
   $('admin-auth').addEventListener('submit', event => { event.preventDefault(); adminToken = $('admin-token').value.trim(); const saved = safeSet(sessionStorage, `${storagePrefix}:admin`, adminToken); authStatus(); if (!saved) text('auth-status', t('Browser storage is blocked. Key kept only until this page reloads.')); pollState(); });
   $('forget-key').addEventListener('click', () => { adminToken = ''; text('invitation-code', ''); text('invitation-status', ''); safeSet(sessionStorage, `${storagePrefix}:admin`, ''); $('inspected-code').textContent = ''; $('inspected-code').hidden = true; authStatus(); pollState(); });
-  async function adminAction(path, body, success) {
+  async function adminAction(path, body, success, method = 'POST') {
     if (app.adminBusy) return false;
     app.adminBusy = true; updateControls(); message('admin-message', t('Sending request…'));
     try {
-      await api(path, { method: 'POST', body: body ?? {}, admin: true });
+      await api(path, { method, body: method === 'DELETE' ? undefined : body ?? {}, admin: true });
+      // A pre-delete poll must finish before the authoritative readback starts.
+      if (method === 'DELETE') while (app.stateBusy) await new Promise(resolve => setTimeout(resolve, 25));
       await pollState();
       message('admin-message', app.online ? success : t('{success} The server accepted the action, but the public state refresh failed; verify after reconnection.', { success }), app.online ? 'success' : ''); return true;
     } catch (error) {
@@ -611,11 +631,28 @@
   $('reset').addEventListener('click', () => { $('reset-confirm').value = ''; $('reset-dialog').showModal(); $('reset-confirm').focus(); });
   $('cancel-reset').addEventListener('click', () => $('reset-dialog').close());
   $('reset-form').addEventListener('submit', async event => { event.preventDefault(); if ($('reset-confirm').value !== 'RESET') return; if (await adminAction('/api/admin/reset', { confirm: 'RESET' }, t('Classroom reset. Open a new session when ready.'))) { $('reset-dialog').close(); setFollowing(true); clearReplay(); $('inspected-code').textContent = ''; $('inspected-code').hidden = true; } });
+  let pendingDelete = null;
+  function openDeleteDialog(entry) {
+    if (view !== 'teacher' || !adminToken || app.adminBusy || !app.online || app.state?.job?.status === 'running') return;
+    pendingDelete = { id: entry.id, alias: entry.alias };
+    text('delete-alias', entry.alias); $('delete-dialog').showModal(); updateControls(); $('cancel-delete').focus();
+  }
+  $('cancel-delete').addEventListener('click', () => $('delete-dialog').close());
+  $('delete-dialog').addEventListener('cancel', event => { if (app.adminBusy) event.preventDefault(); });
+  $('delete-dialog').addEventListener('close', () => { pendingDelete = null; updateControls(); });
+  $('delete-form').addEventListener('submit', async event => {
+    event.preventDefault(); const target = pendingDelete;
+    if (!target || app.adminBusy || $('confirm-delete').disabled) return;
+    if (await adminAction(`/api/admin/submissions/${encodeURIComponent(target.id)}`, undefined, t('Submission deleted. Other pilots are kept.'), 'DELETE')) {
+      $('delete-dialog').close(); $('inspected-code').textContent = ''; $('inspected-code').hidden = true;
+    }
+  });
   $('inspect-select').addEventListener('change', updateControls);
   $('inspect-code').addEventListener('click', async () => {
     const id = $('inspect-select').value; if (!id || app.adminBusy) return;
+    const revision = app.state?.moderation_revision || 0;
     app.adminBusy = true; updateControls();
-    try { const data = await api(`/api/admin/submissions/${encodeURIComponent(id)}`, { admin: true }); if (typeof data.code !== 'string') throw localizedError(t('This submission has no readable source code.')); $('inspected-code').textContent = data.code; $('inspected-code').hidden = false; message('admin-message', t('Teacher-only source loaded.'), 'success'); }
+    try { const data = await api(`/api/admin/submissions/${encodeURIComponent(id)}`, { admin: true }); if (revision !== (app.state?.moderation_revision || 0) || !app.state?.submissions?.some(entry => entry.id === id)) return; if (typeof data.code !== 'string') throw localizedError(t('This submission has no readable source code.')); $('inspected-code').textContent = data.code; $('inspected-code').hidden = false; message('admin-message', t('Teacher-only source loaded.'), 'success'); }
     catch (error) { message('admin-message', error.localized || error.message, 'error'); }
     finally { app.adminBusy = false; updateControls(); }
   });
