@@ -2,6 +2,19 @@
 (() => {
   'use strict';
   const de = {
+  "These are six space-separated numbers, not Python variable names sent by the server.": "Das sind sechs durch Leerzeichen getrennte Zahlen; der Server sendet keine Python-Variablennamen.",
+  ": your pod's current position.": ": die aktuelle Position deines Pods.",
+  ": the next checkpoint's position.": ": die Position des nächsten Checkpoints.",
+  ": distance to that checkpoint.": ": die Entfernung zu diesem Checkpoint.",
+  ": angle to the checkpoint in degrees. Nadja uses the absolute value of the angle because of abs().": ": der Winkel zum Checkpoint in Grad. Nadja verwendet durch abs() den Betrag des Winkels.",
+  "Nadja reads these six values with:": "Nadja liest diese sechs Werte so ein:",
+  "Do not read a second opponent line, including in the final.": "Lies keine zweite Gegnerzeile ein – auch nicht im Finale.",
+  "Nadja prints the target checkpoint and the thrust:": "Nadja gibt den Ziel-Checkpoint und den Schub aus:",
+  " is an integer from 0 to 100: 0 means no thrust, 50 reduced thrust, and 100 full thrust. Nadja adjusts it using the angle, the distance, and the settings at the top of the example.": " ist eine ganze Zahl von 0 bis 100: 0 bedeutet kein Schub, 50 verringerter Schub und 100 voller Schub. Nadja bestimmt ihn anhand von Winkel, Entfernung und den Stellschrauben oben im Beispiel.",
+  "For a checkpoint at (7000, 2000) with full thrust, the output is:": "Für einen Checkpoint bei (7000, 2000) mit vollem Schub lautet die Ausgabe:",
+  " can replace the numeric thrust once per race. The supplied Nadja example starts with ": " kann den Zahlenwert für den Schub einmal pro Rennen ersetzen. Im mitgelieferten Nadja-Beispiel steht zunächst ",
+  "; set it to True to enable the example's one-time boost logic.": "; setze den Wert auf True, um die einmalige Boost-Logik des Beispiels zu aktivieren.",
+  "Read once and print exactly one command each turn. Keep standard output for commands and send diagnostics to standard error. For immediate output, print(..., flush=True) is also supported.": "Lies pro Spielzug einmal ein und gib genau einen Befehl aus. Nutze die Standardausgabe nur für Fahrbefehle und die Fehlerausgabe für Debugmeldungen. Für sofortige Ausgabe kannst du auch print(..., flush=True) verwenden.",
   "Delete": "Löschen",
   "Delete submission by {alias}": "Abgabe von {alias} löschen",
   "TEACHER MODERATION": "MODERATION DURCH DIE LEHRKRAFT",
