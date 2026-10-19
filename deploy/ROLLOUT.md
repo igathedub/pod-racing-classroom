@@ -22,14 +22,16 @@
 
 Den konkreten Backup-/Restore-/Compose-Ablauf beschreibt [RESTORE.md](RESTORE.md). Bestehende private Overlays zuletzt anwenden; öffentliche geschützte Profil-Defaults dürfen einen absichtlich offenen Betrieb nicht versehentlich wieder sperren. Keine Secrets in Chat/Git oder ungefilterte Compose-/Inspect-Ausgaben.
 
-## Aktuelles Feature: Nadja und Einzeilen-Protokoll
+## Aktueller freigegebener Stand: kompletter Backup-Funktionsumfang
 
-Vorgesehener Release-Tag: **`codeweek-checkpoint-v1`**. Vor Deployment auflösen und Ziel-SHA berichten:
+Nach Betreiberfreigabe umfasst der Primär-Rollout die neue Nadja-Vorlage, das Einzeilen-Protokoll, die Kapazität von 100 Abgaben und die Lehrkraft-Löschfunktion. Bestehende bewusst deaktivierte Website-/Klassensperren bleiben aus. **Nur Code und gewünschte Feature-Einstellungen angleichen, keine Backup-Unterrichtsdaten nach Primär kopieren.** Die zuvor besprochene mögliche Archiv-Umgestaltung ist nicht Bestandteil dieses Releases.
+
+Release-Tag: **`codeweek-classroom-v2`**. Vor Deployment auflösen und Ziel-SHA berichten:
 
 ```text
 git status --short
 git fetch origin --tags
-git rev-parse codeweek-checkpoint-v1^{commit}
+git rev-parse codeweek-classroom-v2^{commit}
 ```
 
 Bei lokalen Änderungen oder einem bereits vorhandenen, abweichenden Tag stoppen. Einen sauberen Release-Checkout/Worktree auf dem aufgelösten Commit verwenden; keine bestehenden Änderungen überschreiben. Der laufende Container bleibt bis zum geplanten Deployment unverändert.
@@ -44,11 +46,13 @@ Die Basis-Compose-Datei reicht diese Variable an `classroom` weiter. Ohne Variab
 
 Die aktive Einstellung ist öffentlich unter `/api/rules` bzw. `/backup/api/rules` an `protocol.name == "checkpoint-only"` und genau einer Eingabezeile prüfbar. Starter und Download müssen zur neuen Nadja-Datei passen. Herkunft, Syntaxkorrektur und Testergebnisse: [checkpoint-only-backup.md](../docs/checkpoint-only-backup.md).
 
+Zusätzlich `limits.submissions == 100` und die geschützte Löschbedienung in der Lehrkraftansicht prüfen. Die Löschprüfung mit echter Mutation gehört in eine eigene synthetische Testinstanz, nicht in den Primär-Klassenraum. Vorhandene Teacher-/Claim-Keys und sämtliche Primär-Abgaben/Replays erhalten; geschützte Beispielprofile nicht ungeprüft über aktuelle offene private Overlays legen. Funktionsumfang, Replay-Kaskade und reale 100er-Prüfung: [teacher-moderation-and-load.md](../docs/teacher-moderation-and-load.md).
+
 **Breaking Change:** Alte Bots mit einer zweiten Gegner-`input()`-Zeile müssen vor der nächsten Qualifikation angepasst werden. Kein automatisches Umschreiben oder Löschen alter Abgaben. Alte Replay-Dateien bleiben unverändert. Physik, Sandbox und Teacher-Rechte werden durch diese Freigabe nicht geändert.
 
 ### Übergabeprompt für das Hermes auf Windows
 
-> Rolle: bestehender Windows-Primärserver für `https://codeweek-wi.de/`. Der Betreiber hat das auf Backup getestete Nadja-/Einzeilen-Feature zum Rollout freigegeben. Lies `deploy/ROLLOUT.md`, `deploy/RESTORE.md` und `docs/checkpoint-only-backup.md` aus `igathedub/pod-racing-classroom`. Hole den Release-Tag `codeweek-checkpoint-v1`, löse ihn zu einem Commit auf und verwende genau diesen Stand, nicht einfach einen späteren main. Prüfe zuerst Git-Änderungen, tatsächlichen lokalen Docker-Kontext/Endpunkt, bestehendes Projekt, App-/Bot-/Gate-Images, Datenvolume, private Overlays, Unterrichts-/Jobstatus und aktuellen Zugangsschutz. Keine Neustarts bei aktivem Unterricht/Job. Erzeuge und prüfe vorher eine private konsistente Sicherung samt passenden Operator-/Tunneldateien und einen isolierten Restore-Nachweis. Baue/prüfe das passende rollengetrennte Appimage; bewahre sämtliche Daten, Teacher-/Claim-Keys, Windows-Tunnel und die bestehenden Auth-Einstellungen. Aktiviere `POD_INPUT_PROTOCOL=checkpoint-only` im tatsächlichen Appcontainer über die bestehende private Compose-Konfiguration. Bestehende Website-/Klassensperren nicht wieder einschalten; kein Reset, keine Migration alter Botquellen, kein neues leeres Volume und kein Pruning. Prüfe neues Image und Rules/Editor/Download öffentlich sowie lokal, vollständigen Daten-/Token-Erhalt, Lehrkraft-/Projektoransicht und Browserfehler. Bei Fehlern altes Appimage und alten Protokollwert kontrolliert zurücknehmen, ohne neuere Daten zu überschreiben. Berichte danach Release-SHA, tatsächliche App-/Bot-Image-IDs, aktives Protokoll, Tests, Daten-/Zugangserhalt und etwaige Blocker getrennt. Keine Credentials oder Lernendencodes im Bericht.
+> Rolle: bestehender Windows-Primärserver für `https://codeweek-wi.de/`. Der Betreiber hat den gesamten geprüften Backup-Funktionsumfang freigegeben: neue Nadja-Vorlage, Einzeilen-Protokoll, 100 Abgaben und Lehrkraft-Löschung. Lies `deploy/ROLLOUT.md`, `deploy/RESTORE.md` und `docs/teacher-moderation-and-load.md` aus `igathedub/pod-racing-classroom`. Hole den Release-Tag `codeweek-classroom-v2`, löse ihn zu einem Commit auf und verwende genau diesen Stand, nicht einfach einen späteren main. Prüfe zuerst Git-Änderungen, tatsächlichen lokalen Docker-Kontext/Endpunkt, bestehendes Projekt, App-/Bot-/Gate-Images, Datenvolume, private Overlays, Unterrichts-/Jobstatus und aktuellen Zugangsschutz. Keine Neustarts bei aktivem Unterricht/Job. Erzeuge und prüfe vorher eine private konsistente Sicherung samt passenden Operator-/Tunneldateien und einen isolierten Restore-Nachweis. Baue/prüfe das passende rollengetrennte Appimage; bewahre sämtliche Primär-Daten, Teacher-/Claim-Keys und den Windows-Tunnel. Keine Backup-Daten oder Backup-Secrets nach Primär übernehmen. Aktiviere `POD_INPUT_PROTOCOL=checkpoint-only` im tatsächlichen Appcontainer über die bestehende private Compose-Konfiguration. Website-/Klassensperren bleiben deaktiviert; öffentliche geschützte Profil-Defaults dürfen dies nicht überschreiben. Kein Reset, keine Migration alter Botquellen, kein neues leeres Volume und kein Pruning. Prüfe neues Image, Einzeilen-Regeln, Kapazität 100 und Nadja im Editor/Download öffentlich sowie lokal, vollständigen Daten-/Token-Erhalt, Lehrkraft-/Projektoransicht und Browserfehler. Löschfunktion und echte Mutationen nur mit synthetischen Daten isoliert testen. Bei Fehlern alte Konfiguration und altes Appimage kontrolliert zurücknehmen, ohne neuere Daten zu überschreiben. Berichte danach Release-SHA, tatsächliche App-/Bot-Image-IDs, aktives Protokoll, Tests, Daten-/Zugangserhalt und etwaige Blocker getrennt. Keine Credentials oder Lernendencodes im Bericht; Git-Pull/Build allein ist kein Deploymentnachweis.
 
 ## Rollback
 

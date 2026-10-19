@@ -127,10 +127,10 @@ def test_sessions_bounded_rejoin_and_expiry(tmp_path, monkeypatch):
         token = client.cookies.get('pod_participant')
         assert client.post('/api/join', json={'code': code}).status_code == 200
         assert client.cookies.get('pod_participant') == token
-        for _ in range(59):
+        for _ in range(99):
             client.cookies.clear()
             assert client.post('/api/join', json={'code': code}).status_code == 200
-        assert len(app.state.store.get('class_access')['sessions']) == 60
+        assert len(app.state.store.get('class_access')['sessions']) == 100
         assert client.post('/api/join', json={'code': code}).status_code == 200
         client.cookies.clear()
         assert client.post('/api/join', json={'code': code}).status_code == 429
@@ -138,7 +138,7 @@ def test_sessions_bounded_rejoin_and_expiry(tmp_path, monkeypatch):
         next(iter(state['sessions'].values()))['expires_at'] = time.time() - 1
         app.state.store.update(class_access=state)
         assert client.post('/api/join', json={'code': code}).status_code == 200
-        assert len(app.state.store.get('class_access')['sessions']) == 60
+        assert len(app.state.store.get('class_access')['sessions']) == 100
         state = app.state.store.get('class_access')
         state['expires_at'] = time.time() - 1
         app.state.store.update(class_access=state)

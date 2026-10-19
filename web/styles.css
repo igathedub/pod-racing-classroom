@@ -53,7 +53,9 @@ body[data-has-replay=false] .transport,body[data-has-replay=false] .race-facts,b
 #roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:8px;padding:0 16px 16px;max-height:260px;overflow:auto}
 #roster li{padding:7px 9px;min-width:0}
 #teacher-panel #roster{grid-template-columns:1fr;scrollbar-gutter:stable}
-#teacher-panel #roster li{display:flex;justify-content:space-between;gap:8px}
+#teacher-panel #roster li{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#teacher-panel #roster li strong{flex:1;overflow-wrap:anywhere;min-width:0}
+#teacher-panel #roster .delete-submission{flex:0 0 auto;padding:6px 10px;min-height:44px;font-size:12px}
 #roster-scroll-hint{margin:0;padding:0 16px 10px;color:var(--muted);font-size:12px}
 #rankings{max-height:560px;overflow:auto;scrollbar-gutter:stable}
 #rankings thead th{position:sticky;top:0;background:var(--panel);z-index:1}

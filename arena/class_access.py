@@ -8,6 +8,8 @@ import time
 
 from fastapi import HTTPException
 
+from .store import MAX_SUBMISSIONS
+
 COOKIE = 'pod_participant'
 
 
@@ -51,7 +53,7 @@ class ClassAccess:
         return None
 
     def consume(self, token, path, limit):
-        # Only two fixed paths on at most 60 server-authenticated session records.
+        # Only two fixed paths on a bounded number of authenticated sessions.
         with self.store.lock:
             key = self.valid(token)
             if not key:
@@ -96,7 +98,7 @@ class ClassAccess:
             state['sessions'] = {key: session for key, session in state['sessions'].items()
                                  if session['expires_at'] > time.time() and session['generation'] == state['generation']}
             valid_existing = self.valid(existing)
-            if not valid_existing and len(state['sessions']) >= 60:
+            if not valid_existing and len(state['sessions']) >= MAX_SUBMISSIONS:
                 self.store.update(class_access=state)
                 raise HTTPException(429, 'Classroom participant capacity reached.', headers={'Retry-After': '60'})
             token = existing if valid_existing else secrets.token_urlsafe(32)
