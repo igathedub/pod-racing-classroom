@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 from html import escape
 from pathlib import Path
 import re
@@ -334,6 +335,10 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
         if not path.is_file():
             raise HTTPException(503, "Classroom frontend is not installed.")
         html = path.read_text(encoding="utf-8")
+        # Content-addressed URLs avoid stale CDN/browser locale scripts after updates.
+        for asset in ('app.js', 'i18n.js', 'styles.css'):
+            version = hashlib.sha256((ROOT / 'web' / asset).read_bytes()).hexdigest()[:16]
+            html = html.replace(f'/assets/{asset}"', f'/assets/{asset}?v={version}"')
         # Server-side default avoids a delayed fetch overwriting a student's edits.
         # Escape source so Python strings/comments can never terminate the textarea.
         html = re.sub(r'(<textarea\b[^>]*\bid="code"[^>]*>).*?(</textarea>)',
@@ -355,6 +360,9 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
             physics = 'Checkpoint-only input; racing physics and collisions are unchanged.'
             html = re.sub(r'<p><span data-i18n-fragment data-i18n="In a final with up to five pods, line two describes your">.*?</p>',
                           f'<p data-i18n="{physics}">{physics}</p>', html, count=1)
+            guide = (ROOT / 'web' / 'nadja-guide.html').read_text(encoding='utf-8')
+            html = re.sub(r'(<summary data-i18n="Input / output quick guide">.*?</summary><div class="help-content">).*?(</div></details>)',
+                          lambda match: match[1] + guide + match[2], html, count=1, flags=re.DOTALL)
         return HTMLResponse(html)
 
     if base_path:

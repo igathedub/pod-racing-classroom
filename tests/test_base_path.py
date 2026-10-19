@@ -79,7 +79,7 @@ def test_html_links_and_config_stay_in_base_path(tmp_path, monkeypatch, base):
             links = Links()
             links.feed(response.text)
             assert links.base == base
-            assert set(links.urls) == {base + suffix for suffix in (
+            assert {url.split('?', 1)[0] for url in links.urls} == {base + suffix for suffix in (
                 '/assets/styles.css', '/assets/i18n.js', '/assets/app.js', '/', '/teacher', '/projector', '/api/starter')}
             for url in links.urls:
                 assert client.get(url).status_code == 200
