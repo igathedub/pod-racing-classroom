@@ -99,6 +99,9 @@ opponent_x opponent_y</pre><p data-i18n="Print one command and flush:">Print one
         </div></details>
         <div class="teacher-actions">
           <h3 data-i18n="Coding session">Coding session</h3>
+          <label for="submission-duration" data-i18n="Submission time (minutes)">Submission time (minutes)</label>
+          <input id="submission-duration" type="number" min="1" max="1440" step="1" value="120" required disabled aria-describedby="submission-duration-hint">
+          <p id="submission-duration-hint" class="field-hint" data-i18n="Choose 1–1440 whole minutes. Starting or updating sets the selected time from now. This does not change classroom invitation expiry.">Choose 1–1440 whole minutes. Starting or updating sets the selected time from now. This does not change classroom invitation expiry.</p>
           <div class="button-pair"><button id="start-session" class="primary" type="button" disabled data-i18n="Open coding session">Open coding session</button><button id="close-session" class="quiet" type="button" disabled data-i18n="Close now">Close now</button></div>
           <h3 data-i18n="Tournament">Tournament</h3>
           <button id="qualify" type="button" disabled data-i18n="Run qualification · 3 courses">Run qualification · 3 courses</button>

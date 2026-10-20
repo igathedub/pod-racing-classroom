@@ -2,6 +2,11 @@
 (() => {
   'use strict';
   const de = {
+  "Submission time (minutes)": "Abgabezeit (Minuten)",
+  "Choose 1–1440 whole minutes. Starting or updating sets the selected time from now. This does not change classroom invitation expiry.": "Wähle 1–1440 ganze Minuten. Beim Starten oder Anpassen zählt die gewählte Zeit ab jetzt. Die Gültigkeit einer Klasseneinladung bleibt unverändert.",
+  "Set remaining time": "Restzeit setzen",
+  "Choose whole minutes from 1 to 1440.": "Wähle ganze Minuten von 1 bis 1440.",
+  "Remaining submission time updated.": "Verbleibende Abgabezeit angepasst.",
   "These are six space-separated numbers, not Python variable names sent by the server.": "Das sind sechs durch Leerzeichen getrennte Zahlen; der Server sendet keine Python-Variablennamen.",
   ": your pod's current position.": ": die aktuelle Position deines Pods.",
   ": the next checkpoint's position.": ": die Position des nächsten Checkpoints.",
