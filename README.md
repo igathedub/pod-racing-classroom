@@ -194,7 +194,7 @@ target_x target_y thrust
 
 - Coordinates are integers. The visual course is 16000 by 9000 units.
 - Numeric thrust is 0..100 (out-of-range integers are clamped). `BOOST` provides one stronger acceleration per race; later BOOST commands behave like thrust 100.
-- `SHIELD` prevents thrust and makes the pod heavier for its activation turn and the next two turns. The first turn may face the target freely; subsequent turns rotate by at most 18 degrees.
+- `SHIELD` remains accepted and prevents thrust for its activation turn and the next two turns; without collisions it has no defensive effect. The first turn may face the target freely; subsequent turns rotate by at most 18 degrees.
 - In the final, the opponent line describes the **nearest other pod**. Do not assume there are only two participants.
 - Keep `while True` and read both lines every turn. Keep variables outside the loop when they must survive across turns.
 - Use `print(..., flush=True)` for actions. Send debugging to `sys.stderr`, not to the action channel.
@@ -205,9 +205,11 @@ Use the site rules as the authoritative description of the implemented classroom
 
 ## How the competition is scored
 
+Practice, qualification and final all run without collisions. Pods pass through each other; opponents cannot push, block or otherwise change another pod’s movement. All other racing physics and the existing BOOST/SHIELD commands remain compatible. Existing archived contact replays keep their original metadata and labels.
+
 **Qualification:** each student runs the same three deterministic courses from the same starting position, with collisions disabled and a trusted reference opponent. This measures the student's racing behavior fairly rather than rewarding luck in a particular pairing. Rank completed courses first, then the tournament's recorded time/progress tiebreakers. A disqualified program cannot enter the final. All submitted source versions are frozen when qualification begins.
 
-**Final:** up to five best valid programs race together with collisions enabled. They use the frozen source, not any later edits. The replay records every turn and the referee's finishing order. The website reports when no valid finisher exists instead of silently declaring a crashed program the champion.
+**Final:** up to five best valid programs race together without collisions. They use the frozen source, not any later edits. The replay records every turn and the referee's finishing order. The website reports when no valid finisher exists instead of silently declaring a crashed program the champion.
 
 ## Teacher workflow
 

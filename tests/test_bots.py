@@ -260,7 +260,7 @@ def test_docker_examples_actually_finish_races(docker_ready, filename, track):
     replay = run_race([
         {"id": "student", "alias": filename, "code": code},
         {"id": "reference", "alias": "Baseline", "kind": "reference", "code": "baseline"},
-    ], track, collisions=False)
+    ], track)
     student = next(result for result in replay["results"] if result["id"] == "student")
     assert not student["disqualified"], student["error"]
     assert student["finished"], student
@@ -269,12 +269,12 @@ def test_docker_examples_actually_finish_races(docker_ready, filename, track):
 
 
 @pytest.mark.docker
-def test_docker_five_real_pods_collide_and_produce_a_winner(docker_ready):
+def test_docker_five_real_pods_race_without_contact_and_produce_a_winner(docker_ready):
     filenames = ["boost.py", "cornering.py", "momentum.py", "sprinter.py", "cautious.py"]
     entries = [{"id": str(index), "alias": filename,
                 "code": (ROOT / "examples" / filename).read_text(encoding="utf-8")}
                for index, filename in enumerate(filenames)]
-    replay = run_race(entries, make_tracks()[0], collisions=True)
+    replay = run_race(entries, make_tracks()[0])
     assert replay["winner_id"] is not None
     assert len(replay["frames"][-1]["pods"]) == 5
     assert all(not item["disqualified"] for item in replay["results"])

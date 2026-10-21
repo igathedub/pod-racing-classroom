@@ -247,10 +247,11 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                     "opponent": "Nearest other pod, including in the simultaneous final.",
                     "flush": "Flush stdout after every command; no bootstrap input."},
                 "laps": 2, "max_turns": 700, "qualification_tracks": 3, "final_pods": 5,
+                "racing": "Practice, qualification and final all run without collisions. Pods pass through each other.",
                 "qualification": "Same three tracks and starting positions against a reference ghost; collisions disabled.",
                 "ranking": "Disqualified entries last; completed tracks descending, total turns ascending (DNF costs 700), aggregate checkpoint progress descending, case-folded alias then UUID.",
-                "final": "Up to five eligible snapshot bots race simultaneously with collisions. At least two needed. Only a valid finisher can become champion.",
-                "physics": "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD lasts three turns with no thrust and heavier mass.",
+                "final": "Up to five eligible snapshot bots race simultaneously without collisions. At least two needed. Only a valid finisher can become champion.",
+                "physics": "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD remains accepted and prevents thrust for three turns; it has no collision effect.",
                 "security": "Python syntax checked without execution; bot execution only in restricted Docker.",
                 "limits": {"code_bytes": 32768, "submissions": MAX_SUBMISSIONS, "alias_characters": 24}}
         result['protocol']['name'] = input_protocol
@@ -357,7 +358,7 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                                 f'<p id="protocol-notice" class="field-hint" data-i18n="{notice}">{notice}</p><form id="submission-form">')
             html = html.replace('data-i18n=" two lines">two lines', 'data-i18n=" one line">one line')
             html = html.replace('relative_angle\nopponent_x opponent_y</pre>', 'relative_angle</pre>')
-            physics = 'Checkpoint-only input; racing physics and collisions are unchanged.'
+            physics = 'Practice, qualification and final all run without collisions. Pods pass through each other.'
             html = re.sub(r'<p><span data-i18n-fragment data-i18n="In a final with up to five pods, line two describes your">.*?</p>',
                           f'<p data-i18n="{physics}">{physics}</p>', html, count=1)
             guide = (ROOT / 'web' / 'nadja-guide.html').read_text(encoding='utf-8')

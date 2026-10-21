@@ -139,7 +139,7 @@ def main() -> None:
     assert state["champion"] is not None
     metadata = next(x for x in reversed(state["replays"]) if x["kind"] == "final")
     replay = request("/api/replays/" + metadata["id"])
-    assert replay["status"] == "finished" and replay["collisions"] is True
+    assert replay["status"] == "finished" and replay["collisions"] is False
     assert len(replay["entries"]) == 5 and len(replay["frames"]) > 5
     assert replay["winner_id"] == state["champion"]["id"]
     assert token not in json.dumps(state)

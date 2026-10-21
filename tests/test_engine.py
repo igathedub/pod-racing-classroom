@@ -5,7 +5,7 @@ import pytest
 
 from arena.bots import BotOutputLimit, BotTimeout, ReferenceRunner
 from arena.engine import (
-    Pod, advance_turn, apply_command, bounce, make_tracks, observation,
+    Pod, advance_turn, apply_command, make_tracks, observation,
     parse_command, run_race,
 )
 
@@ -84,14 +84,14 @@ def test_boost_only_once():
     assert p.vx == 750
 
 
-def test_shield_duration_mass_and_no_boost_consumption():
+def test_shield_compatibility_duration_and_no_boost_consumption():
     p = pod()
     apply_command(p, (10000, 0, "SHIELD"))
-    assert p.mass == 10
+    assert p.shield_turns == 3
     for expected in (2, 1, 0):
         apply_command(p, (10000, 0, "BOOST"))
         assert p.vx == 0 and p.boost_available
-        advance_turn([p], [[-10000, 0], [10000, 0]], collisions=False)
+        advance_turn([p], [[-10000, 0], [10000, 0]])
         assert p.shield_turns == expected
     apply_command(p, (10000, 0, "BOOST"))
     assert p.vx == 650
@@ -99,7 +99,7 @@ def test_shield_duration_mass_and_no_boost_consumption():
 
 def test_swept_checkpoint_not_just_endpoint():
     p = pod(vx=3000)
-    advance_turn([p], [[-5000, 0], [1000, 0], [9000, 0]], collisions=False)
+    advance_turn([p], [[-5000, 0], [1000, 0], [9000, 0]])
     assert p.x == 3000
     assert abs(p.x - 1000) > 600
     assert p.passed == 1 and p.next_checkpoint == 2
@@ -108,7 +108,7 @@ def test_swept_checkpoint_not_just_endpoint():
 
 def test_multiple_checkpoints_in_one_turn():
     p = pod(vx=3000)
-    advance_turn([p], [[-5000, 0], [1000, 0], [2400, 0]], collisions=False)
+    advance_turn([p], [[-5000, 0], [1000, 0], [2400, 0]])
     assert p.passed == 2 and p.next_checkpoint == 0
 
 
@@ -121,43 +121,34 @@ def test_rounding_and_friction_truncate_toward_zero():
     assert p.vx == 9 and p.vy == -9
 
 
-def test_chronological_contact_before_checkpoint_changes_crossing():
+def test_other_pod_does_not_prevent_checkpoint_crossing():
     a = pod(vx=1000)
     b = Pod("two", "Two", 1500, 0, next_checkpoint=0)
-    advance_turn([a, b], [[-10000, 0], [1500, 0], [4000, 0]], collisions=True)
-    assert a.passed == 0 and a.x == 700
-    assert b.x == 1800
-    assert a.vx == 0 and b.vx == 850
+    advance_turn([a, b], [[-10000, 0], [1500, 0], [4000, 0]])
+    assert a.passed == 1 and a.x == 1000
+    assert b.x == 1500
+    assert a.vx == 850 and b.vx == 0
 
 
-def test_checkpoint_before_contact_is_counted():
+def test_checkpoint_is_counted_despite_nearby_pod():
     a = pod(vx=1000)
     b = Pod("two", "Two", 1500, 0, next_checkpoint=0)
-    advance_turn([a, b], [[-10000, 0], [1000, 0], [4000, 0]], collisions=True)
-    assert a.passed == 1 and a.x == 700
+    advance_turn([a, b], [[-10000, 0], [1000, 0], [4000, 0]])
+    assert a.passed == 1 and a.x == 1000
 
 
-def test_head_on_contact_and_ghost_mode():
-    a = pod(vx=500)
-    b = Pod("two", "Two", 1600, 0, vx=-500)
-    advance_turn([a, b], [[-10000, 0], [10000, 0]], collisions=True)
-    assert (a.x, b.x, a.vx, b.vx) == (300, 1300, -425, 425)
+def test_head_on_pods_keep_their_own_velocity():
     a, b = pod(vx=500), Pod("two", "Two", 1600, 0, vx=-500)
-    advance_turn([a, b], [[-10000, 0], [10000, 0]], collisions=False)
-    assert (a.x, b.x) == (500, 1100)
+    advance_turn([a, b], [[-10000, 0], [10000, 0]])
+    assert (a.x, b.x, a.vx, b.vx) == (500, 1100, 425, -425)
 
 
-def test_minimum_impulse_and_shield_mass_conserve_momentum():
-    a = pod(vx=50)
+def test_shield_does_not_transfer_impulse_to_another_pod():
+    a = pod(vx=50, shield_turns=3)
     b = Pod("two", "Two", 800, 0, vx=-50)
-    bounce(a, b)
-    assert a.vx == -120 and b.vx == 120
-    a = pod(vx=100, shield_turns=3)
-    b = Pod("two", "Two", 800, 0)
-    before = a.mass * a.vx + b.mass * b.vx
-    bounce(a, b)
-    assert a.mass * a.vx + b.mass * b.vx == pytest.approx(before)
-    assert a.vx > b.vx / 10
+    advance_turn([a, b], [[-10000, 0], [10000, 0]])
+    assert (a.x, b.x, a.vx, b.vx) == (50, 750, 42, -42)
+    assert a.shield_turns == 2
 
 
 def test_degenerate_overlaps_finite_and_no_zero_time_loop():
@@ -184,9 +175,9 @@ def test_beginner_observation_nearest_opponent_and_two_lines():
 
 
 def test_replay_determinism_real_trusted_policies_and_finite_records():
-    kwargs = {"collisions": True}
-    first = run_race(entries(5), make_tracks()[0], **kwargs)
-    second = run_race(entries(5), make_tracks()[0], **kwargs)
+    first = run_race(entries(5), make_tracks()[0])
+    second = run_race(entries(5), make_tracks()[0])
+    assert first["collisions"] is False
     first.pop("id")
     second.pop("id")
     assert first == second
@@ -198,7 +189,7 @@ def test_replay_determinism_real_trusted_policies_and_finite_records():
 
 @pytest.mark.parametrize("track", make_tracks())
 def test_baseline_finishes_all_qualification_tracks_within_limit(track):
-    replay = run_race(entries(), track, collisions=False)
+    replay = run_race(entries(), track)
     assert all(result["finished"] and not result["disqualified"] for result in replay["results"])
     assert replay["winner_id"] in {"0", "1"}
 
@@ -209,7 +200,7 @@ def test_invalid_bot_dq_and_cleanup_while_good_bot_continues():
     closed = []
     original_close = good.close
     good.close = lambda: (closed.append(True), original_close())
-    replay = run_race(entries(), make_tracks()[0], collisions=False,
+    replay = run_race(entries(), make_tracks()[0],
                       runner_factory=lambda e: good if e["id"] == "0" else bad)
     assert replay["winner_id"] == "0"
     assert replay["results"][0]["finished"]
@@ -244,7 +235,7 @@ def test_startup_error_does_not_leak_arbitrary_exception_or_abort_others():
         if entry["id"] == "1":
             raise RuntimeError("host secret must not be public")
         return ReferenceRunner(entry)
-    replay = run_race(entries(), make_tracks()[0], runner_factory=factory, collisions=False)
+    replay = run_race(entries(), make_tracks()[0], runner_factory=factory)
     assert replay["results"][1]["error"] == "crash: Bot runner failed"
     assert replay["winner_id"] == "0"
 
@@ -262,7 +253,7 @@ def test_same_turn_finish_order_by_continuous_finish_time():
     # same discrete turn, yet their fractional finish times decide placement.
     p1 = Pod("slow", "Slow", 0, 0, vx=1000, passed=1, next_checkpoint=0)
     p2 = Pod("fast", "Fast", 0, 100, vx=1500, passed=1, next_checkpoint=0)
-    advance_turn([p1, p2], [[1000, 0], [6000, 0]], laps=1, collisions=False)
+    advance_turn([p1, p2], [[1000, 0], [6000, 0]], laps=1)
     assert p1.turns == p2.turns == 1
     assert p2.finish_time < p1.finish_time
 

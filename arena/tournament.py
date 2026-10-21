@@ -171,7 +171,7 @@ class Tournament:
             from .engine import run_race
             race_fn = partial(run_race, input_protocol=self.input_protocol)
         try:
-            result = race_fn([entry, reference], track, laps=2, max_turns=700, collisions=False)
+            result = race_fn([entry, reference], track, laps=2, max_turns=700)
         except Exception as exc:
             raise CompetitionError(503, "Practice run interrupted. Check the Docker sandbox and try again.") from exc
         raw_frames = result.get("frames", [])
@@ -264,9 +264,9 @@ class Tournament:
         fields = ("id", "alias", "x", "y", "angle", "vx", "vy", "next_checkpoint", "passed", "finished", "disqualified", "boost_available")
         return {"turn": frame["turn"], "pods": [{**{k: pod[k] for k in fields if k in pod}, "error": public_error(pod.get("error"))} for pod in frame["pods"]]}
 
-    def _race(self, entries, track, kind, title, collisions):
+    def _race(self, entries, track, kind, title):
         replay_id = str(uuid.uuid4())
-        replay = {"id": replay_id, "track": track, "laps": 2, "max_turns": 700, "collisions": collisions,
+        replay = {"id": replay_id, "track": track, "laps": 2, "max_turns": 700, "collisions": False,
                   "input_protocol": self.input_protocol,
                   "status": "running", "winner_id": None, "entries": [{"id": e["id"], "alias": e["alias"]} for e in entries], "frames": [], "results": []}
         self.store.add_replay(replay_id, title, kind)
@@ -288,7 +288,7 @@ class Tournament:
         if race_fn is None:
             from .engine import run_race
             race_fn = partial(run_race, input_protocol=self.input_protocol)
-        result = race_fn(entries, track, laps=2, max_turns=700, collisions=collisions, on_frame=on_frame)
+        result = race_fn(entries, track, laps=2, max_turns=700, on_frame=on_frame)
         raw_frames = result.get("frames", [])
         if len(raw_frames) > 701 or any(len(frame["pods"]) > 5 for frame in raw_frames):
             raise ValueError("Engine exceeded replay bounds")
@@ -307,7 +307,7 @@ class Tournament:
         completed = 0
         for entry in snapshot:
             for track in tracks:
-                replay = self._race([entry, baseline], track, "qualification", f"{entry['alias']} · {track['name']}", False)
+                replay = self._race([entry, baseline], track, "qualification", f"{entry['alias']} · {track['name']}")
                 row = next(r for r in replay["results"] if r["id"] == entry["id"])
                 results[entry["id"]].append(row)
                 completed += 1
@@ -321,7 +321,7 @@ class Tournament:
             self.store.update(leaderboard=board, finalists=eligible, job={**job, "status": "finished", "message": "Qualification complete."}, session={**self.session(), "status": "qualified"})
 
     def _final(self, entries, track):
-        replay = self._race(entries, track, "final", f"Final · {len(entries)} pods", True)
+        replay = self._race(entries, track, "final", f"Final · {len(entries)} pods")
         winner = next((row for row in replay["results"] if row["id"] == replay["winner_id"]), None)
         champion = {"id": winner["id"], "alias": winner["alias"]} if winner else None
         with self.lock:

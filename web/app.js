@@ -103,7 +103,7 @@
     $('qualify').disabled = !adminReady || !app.state?.submissions?.length || !app.state?.sandbox?.available || ['qualified', 'finished', 'final'].includes(session);
     $('run-final').disabled = !adminReady || !app.state?.sandbox?.available || session !== 'qualified' || finalCount < 2;
     text('run-final', t(finalCount === 1 ? 'Run final · {count} pilot' : 'Run final · {count} pilots', { count: finalCount }));
-    text('final-hint', session === 'qualified' ? finalCount < 2 ? t(finalCount === 1 ? 'Only {count} eligible pilot. At least 2 are required for a final.' : 'Only {count} eligible pilots. At least 2 are required for a final.', { count: finalCount }) : t('{eligible} eligible after qualification. The best {count} will race together with collisions.', { eligible: eligible.length, count: finalCount }) : t('At least 2 eligible pilots are required. The final takes up to 5 from the frozen qualification results.'));
+    text('final-hint', session === 'qualified' ? finalCount < 2 ? t(finalCount === 1 ? 'Only {count} eligible pilot. At least 2 are required for a final.' : 'Only {count} eligible pilots. At least 2 are required for a final.', { count: finalCount }) : t('{eligible} eligible after qualification. The best {count} will race together without collisions.', { eligible: eligible.length, count: finalCount }) : t('At least 2 eligible pilots are required. The final takes up to 5 from the frozen qualification results.'));
     $('seed-demo').disabled = !adminReady || session !== 'waiting' || Boolean(app.state?.submissions?.length);
     $('reset').disabled = !adminReady;
     $('inspect-code').disabled = !app.online || !adminToken || app.adminBusy || !$('inspect-select').value;
@@ -373,7 +373,8 @@
   }
   function updateChampionLabel() {
     const champion = app.state?.champion;
-    const revealed = view === 'teacher' || (app.replay?.status === 'finished' && app.replay?.winner_id === champion?.id && app.replay?.collisions && app.position >= app.replay.frames.length - 1);
+    const finalReplay = !app.localReplay && app.state?.replays?.some(replay => replay.id === app.replayId && replay.id === app.replay?.id && replay.kind === 'final');
+    const revealed = view === 'teacher' || (finalReplay && app.replay?.status === 'finished' && app.replay?.winner_id === champion?.id && app.replay.frames.length > 0 && app.position >= app.replay.frames.length - 1);
     text('champion-label', !champion ? t('No classroom champion yet.') : revealed ? t('CLASSROOM CHAMPION / {alias}', { alias: champion.alias }) : t('Final result revealed at the finish.'));
   }
   function updatePlaybackUI() {

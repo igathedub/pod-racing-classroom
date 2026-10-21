@@ -17,7 +17,7 @@ def sandbox_ready():
     return {"available": True, "detail": "Test sandbox", "image": "pod-classroom-bot:local"}
 
 
-def fake_race(entries, track, *, laps=2, max_turns=700, collisions=True, on_frame=None):
+def fake_race(entries, track, *, laps=2, max_turns=700, collisions=False, on_frame=None):
     rows = []
     for index, entry in enumerate(entries):
         invalid = entry["alias"] == "Crash"
@@ -89,7 +89,7 @@ def test_common_tracks_top_five_and_immutable_versions(tournament):
     assert job["total"] == 21
     join(tournament)
     assert len(calls) == 21
-    assert all(not kwargs["collisions"] for _, _, kwargs in calls)
+    assert all("collisions" not in kwargs for _, _, kwargs in calls)
     for submission in submissions:
         student_calls = [(entries, track) for entries, track, _ in calls if entries[0]["id"] == submission["id"]]
         assert [track["id"] for _, track in student_calls] == ["track-0", "track-1", "track-2"]
@@ -106,7 +106,7 @@ def test_common_tracks_top_five_and_immutable_versions(tournament):
     tournament.start_final()
     join(tournament)
     assert len(calls[-1][0]) == 5
-    assert calls[-1][2]["collisions"]
+    assert "collisions" not in calls[-1][2]
     assert [entry["id"] for entry in calls[-1][0]] == [row["id"] for row in board if not row["disqualified"]][:5]
     assert tournament.store.get("snapshot") == snapshot
     assert tournament.store.get("champion")["id"] == calls[-1][0][0]["id"]
@@ -266,5 +266,5 @@ def test_real_engine_contract_with_trusted_runner_injection(tournament):
     assert tournament.store.get("champion") is not None
     replay = tournament.store.read_replay(tournament.store.get("active_replay_id"))
     assert len(replay["frames"]) > 20 and len(replay["entries"]) == 5
-    assert replay["collisions"] is True
+    assert replay["collisions"] is False
     assert len(replay["frames"]) <= 701

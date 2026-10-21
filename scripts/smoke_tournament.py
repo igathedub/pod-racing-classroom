@@ -117,7 +117,7 @@ def main() -> None:
                 assert len(replay["entries"]) == 5
                 assert len(replay["frames"]) > 5
                 assert replay["winner_id"] == final_state["champion"]["id"]
-                assert replay["collisions"] is True
+                assert replay["collisions"] is False
                 assert all("code" not in entry for entry in replay["entries"])
                 result = {
                     "submission_count": len(final_state["submissions"]),
@@ -126,7 +126,7 @@ def main() -> None:
                     "champion": final_state["champion"],
                     "final_frames": len(replay["frames"]),
                     "final_results": replay["results"],
-                    "checks": ["admin authorization", "alias ownership", "syntax validation", "frozen submissions", "public secret exclusion", "real Docker qualifiers", "invalid bot exclusion", "top-five selection", "real five-pod collision final", "persisted replay"],
+                    "checks": ["admin authorization", "alias ownership", "syntax validation", "frozen submissions", "public secret exclusion", "real Docker qualifiers", "invalid bot exclusion", "top-five selection", "real five-pod collision-free final", "persisted replay"],
                 }
                 artifacts = ROOT / "artifacts"
                 artifacts.mkdir(exist_ok=True)

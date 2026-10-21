@@ -201,7 +201,7 @@ def test_http_qualification_final_replay_persistence_reset(api):
     replay_id = finished["active_replay_id"]
     replay = client.get(f"/api/replays/{replay_id}")
     assert replay.status_code == 200
-    assert replay.json()["collisions"] is True and len(replay.json()["entries"]) == 5
+    assert replay.json()["collisions"] is False and len(replay.json()["entries"]) == 5
     assert "private-student-source" not in replay.text and "claim_token" not in replay.text and '"code"' not in replay.text
     assert TOKEN not in replay.text and "secret-source" not in replay.text
     assert client.get("/api/replays/not-a-uuid").status_code == 404

@@ -65,14 +65,15 @@ MESSAGES = {
     "Bot exceeded its output limit.": "Der Bot hat sein Ausgabelimit überschritten.",
     "Bot process crashed.": "Das Bot-Programm ist abgestürzt.",
     "Bot disqualified.": "Der Bot wurde disqualifiziert.",
+    "Practice, qualification and final all run without collisions. Pods pass through each other.": "Testläufe, Qualifikation und Finale laufen immer ohne Kollisionen. Pods fahren durcheinander hindurch.",
     "Classroom one-pod racing": "Pod-Rennen für den Programmierkurs",
     "integer 0–100, BOOST once per race, or SHIELD": "ganze Zahl von 0 bis 100, BOOST einmal pro Rennen oder SHIELD",
     "Nearest other pod, including in the simultaneous final.": "Der nächstgelegene andere Pod, auch im gemeinsamen Finale.",
     "Flush stdout after every command; no bootstrap input.": "Leere stdout nach jedem Befehl mit flush=True; es gibt keine zusätzliche Start-Eingabe.",
     "Same three tracks and starting positions against a reference ghost; collisions disabled.": "Alle Bots fahren dieselben drei Strecken von denselben Startpositionen gegen einen Referenz-Bot; Kollisionen sind ausgeschaltet.",
     "Disqualified entries last; completed tracks descending, total turns ascending (DNF costs 700), aggregate checkpoint progress descending, case-folded alias then UUID.": "Disqualifizierte Bots stehen am Ende. Danach zählen absolvierte Strecken absteigend, benötigte Spielzüge aufsteigend (nicht beendet zählt als 700), Checkpoint-Fortschritt absteigend und zuletzt Alias ohne Beachtung der Großschreibung sowie UUID.",
-    "Up to five eligible snapshot bots race simultaneously with collisions. At least two needed. Only a valid finisher can become champion.": "Bis zu fünf zugelassene Bots fahren mit ihrem eingefrorenen Code gleichzeitig mit Kollisionen. Mindestens zwei sind erforderlich. Nur ein Bot, der das Ziel gültig erreicht, kann gewinnen.",
-    "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD lasts three turns with no thrust and heavier mass.": "Kurs-Variante, nicht die offizielle CodinGame-Engine: Breite 16000, Höhe 9000, Checkpoint-Radius 600, Pod-Radius 400, Drehung 18 Grad pro Spielzug, Reibungsfaktor 0,85, BOOST 650. SHIELD wirkt drei Spielzüge lang ohne Schub und mit größerer Masse.",
+    "Up to five eligible snapshot bots race simultaneously without collisions. At least two needed. Only a valid finisher can become champion.": "Bis zu fünf zugelassene Bots fahren mit ihrem eingefrorenen Code gleichzeitig ohne Kollisionen. Mindestens zwei sind erforderlich. Nur ein Bot, der das Ziel gültig erreicht, kann gewinnen.",
+    "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD remains accepted and prevents thrust for three turns; it has no collision effect.": "Kurs-Variante, nicht die offizielle CodinGame-Engine: Breite 16000, Höhe 9000, Checkpoint-Radius 600, Pod-Radius 400, Drehung 18 Grad pro Spielzug, Reibungsfaktor 0,85, BOOST 650. SHIELD bleibt erlaubt und verhindert drei Spielzüge lang Schub; es hat keine Kollisionswirkung.",
     "Python syntax checked without execution; bot execution only in restricted Docker.": "Die Python-Syntax wird ohne Ausführung geprüft; Bots laufen ausschließlich in eingeschränkten Docker-Containern.",
 }
 COURSES = {"Wide Circuit": "Breiter Rundkurs", "Five Corners": "Fünf Kurven", "Switchback": "Zickzackstrecke"}
@@ -137,7 +138,7 @@ def localize_rules(rules: dict, language: str) -> dict:
     if language == "en":
         return rules
     result = deepcopy(rules)
-    for field in ("title", "qualification", "ranking", "final", "physics", "security"):
+    for field in ("title", "racing", "qualification", "ranking", "final", "physics", "security"):
         result[field] = translate(result[field], language)
     for field in ("thrust", "opponent", "flush"):
         if field in result["protocol"]:

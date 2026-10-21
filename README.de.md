@@ -67,7 +67,7 @@ Diese Regel wird nicht automatisch gesetzt. Nach dem Workshop wieder entfernen. 
 3. Unter `/teacher` auf **Programmierphase starten** klicken. Erst dann sind Einreichungen möglich.
 4. Die Lernenden wählen einen Alias und fügen ihren Python-Code ein oder laden eine `.py`-Datei hoch. Änderungen sind bis zum Einsendeschluss möglich. Das Browser-Token schützt den Alias; derselbe Browser sollte weiterverwendet werden. Quellcode zusätzlich selbst speichern.
 5. Am Ende die Einreichung schließen oder den Countdown ablaufen lassen. Mit **Qualifikation starten** die Qualifikation starten. Alle Programme fahren dieselben drei deterministischen Strecken ohne Kollisionen; ihre Quellcodeversionen werden dabei eingefroren. Fehlerhafte Programme sind nicht fürs Finale zugelassen.
-6. Nach abgeschlossener Qualifikation **Finale starten** wählen. Die besten fünf gültigen Programme fahren gemeinsam mit Kollisionen. Bei weniger gültigen Programmen fahren entsprechend weniger, mindestens zwei.
+6. Nach abgeschlossener Qualifikation **Finale starten** wählen. Die besten fünf gültigen Programme fahren gemeinsam ohne Kollisionen. Bei weniger gültigen Programmen fahren entsprechend weniger, mindestens zwei.
 7. `/projector` im Vollbild projizieren. Wiedergabe pausieren, beschleunigen oder erneut ansehen. Der Sieger wird in der Projektoransicht erst am Rennende verraten. Wenn niemand gültig ins Ziel kommt, wird nicht einfach ein abgestürzter Bot zum Sieger erklärt.
 
 Den Lehrkraft-Schlüssel und das Loginfeld nicht projizieren. Sitzung, Deadline und Ergebnisse überstehen einen Neustart. Ein unterbrochener Turnierauftrag wird als fehlgeschlagen markiert, nicht automatisch fortgesetzt. Während eines laufenden Turniers nicht aktualisieren oder zurücksetzen.
@@ -144,6 +144,8 @@ Sie belegen keine neue Docker-Ausführung oder produktive Bereitstellung.
 
 ## Python-Schnittstelle für die Lernenden
 
+Testläufe, Qualifikation und Finale laufen immer ohne Kollisionen. Pods fahren durcheinander hindurch; sie können andere Pods weder wegschieben noch blockieren oder deren Bewegung verändern. Alle anderen Regeln der Rennphysik und die bisherigen BOOST-/SHIELD-Befehle bleiben kompatibel. Vorhandene Kontakt-Replays behalten ihre ursprünglichen Metadaten und Beschriftungen.
+
 Die Startvorlage gibt es auf der Website. Pro Zug liest ein Programm zwei Zeilen:
 
 ```text
@@ -159,7 +161,7 @@ target_x target_y thrust
 
 - Die Koordinaten sind ganze Zahlen. Die Strecke ist grundsätzlich 16000 × 9000 Einheiten groß.
 - `thrust` ist eine Zahl von 0 bis 100; größere/kleinere Ganzzahlen werden begrenzt. Einmal pro Rennen ist `BOOST` möglich; weitere BOOST-Befehle wirken wie Schub 100.
-- `SHIELD` macht den Pod für den Aktivierungszug und die zwei folgenden Züge schwerer und verhindert Schub. Nach der freien Ausrichtung im ersten Zug kann der Pod höchstens 18 Grad pro Zug drehen.
+- `SHIELD` bleibt erlaubt und verhindert im Aktivierungszug und den zwei folgenden Zügen den Schub; ohne Kollisionen hat es keine Schutzwirkung. Nach der freien Ausrichtung im ersten Zug kann der Pod höchstens 18 Grad pro Zug drehen.
 - Im Finale bezeichnet die Gegnerzeile den **nächstgelegenen anderen Pod**, nicht immer denselben Gegner.
 - Beide Eingabezeilen in jedem Durchlauf lesen. Variablen außerhalb der Schleife behalten ihren Wert über mehrere Züge.
 - Aktionen mit `print(..., flush=True)` ausgeben; Debug-Ausgaben gehören nach `sys.stderr`.
