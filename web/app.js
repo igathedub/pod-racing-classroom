@@ -32,6 +32,8 @@
   const aliasKey = alias => `${storagePrefix}:claim:${alias.trim().toLowerCase()}`;
   const claimFor = alias => memoryClaims.get(alias.trim().toLowerCase()) || safeGet(localStorage, aliasKey(alias));
   let adminToken = view === 'teacher' ? safeGet(sessionStorage, `${storagePrefix}:admin`) : '';
+  let submissionDurationInitialized = false;
+  let submissionDurationEdited = false;
   const humanStatus = status => ({ waiting: t('Waiting for teacher to open'), open: t('Submissions are open'), closed: t('Submissions closed'), qualifying: t('Qualification in progress'), qualified: t('Qualification complete'), final: t('Final race in progress'), finished: t('Classroom final complete') }[status] || t('Waiting for session'));
   const formatTime = seconds => {
     const s = Math.max(0, Math.floor(seconds));
@@ -99,6 +101,8 @@
     $('test-bot').disabled = !isOpen() || app.submitBusy || app.practiceBusy || !app.state?.sandbox?.available;
     text('test-bot', app.practiceBusy ? t('Testing…') : t('Test this code'));
     $('start-session').disabled = !adminReady || !['waiting', 'open', 'closed'].includes(session) || Boolean(app.state?.leaderboard?.length);
+    $('submission-duration').disabled = $('start-session').disabled;
+    text('start-session', t(session === 'open' ? 'Set remaining time' : 'Open coding session'));
     $('close-session').disabled = !adminReady || session !== 'open';
     $('qualify').disabled = !adminReady || !app.state?.submissions?.length || !app.state?.sandbox?.available || ['qualified', 'finished', 'final'].includes(session);
     $('run-final').disabled = !adminReady || !app.state?.sandbox?.available || session !== 'qualified' || finalCount < 2;
@@ -156,6 +160,11 @@
   }
   function renderState() {
     const state = app.state;
+    if (!submissionDurationInitialized && !submissionDurationEdited) {
+      const minutes = Math.ceil(Number(state.session?.duration_seconds) / 60);
+      if (Number.isFinite(minutes) && minutes >= 1 && minutes <= 1440) $('submission-duration').value = String(minutes);
+      submissionDurationInitialized = true;
+    }
     text('entry-count', state.submissions.length);
     text('sandbox-label', state.sandbox.available ? t('Docker ready') : t('Docker unavailable'));
     $('sandbox-label').title = state.sandbox.detail || '';
@@ -624,7 +633,17 @@
   }
   $('create-invitation').addEventListener('click', () => invitationAction(false));
   $('revoke-invitation').addEventListener('click', () => invitationAction(true));
-  $('start-session').addEventListener('click', () => adminAction('/api/admin/session/start', { duration_seconds: 7200 }, t('Coding session opened.')));
+  $('submission-duration').addEventListener('input', () => { submissionDurationEdited = true; });
+  $('start-session').addEventListener('click', () => {
+    if ($('start-session').disabled) return;
+    const field = $('submission-duration');
+    const minutes = Number(field.value);
+    if (!field.value.trim() || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+      message('admin-message', t('Choose whole minutes from 1 to 1440.'), 'error'); field.focus(); return;
+    }
+    const success = t(app.state?.session?.status === 'open' ? 'Remaining submission time updated.' : 'Coding session opened.');
+    adminAction('/api/admin/session/start', { duration_seconds: minutes * 60 }, success);
+  });
   $('close-session').addEventListener('click', () => adminAction('/api/admin/session/close', {}, t('Submission session closed.')));
   $('seed-demo').addEventListener('click', () => adminAction('/api/admin/demo', {}, t('Example bots inserted. Run qualification to produce actual results.')));
   $('qualify').addEventListener('click', () => { if (app.state?.submissions?.length && confirm(t('Close submissions and freeze the current bots for qualification on 3 common courses?'))) { setFollowing(true); adminAction('/api/admin/qualify', {}, t('Qualification accepted. Follow worker progress and live replays.')); } });
