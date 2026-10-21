@@ -68,6 +68,8 @@ body[data-view=projector] .session-clock,body[data-view=projector] .race-facts,b
 
 /* Overall finals retain every time column; scroll locally instead of hiding one. */
 .rank-panel{min-width:0}
+/* Numeric headers share the same right edge as their column values. */
+.rank-table th:nth-child(n+3){text-align:right}
 .ranking-tabs,body[data-view=projector] .ranking-tabs{flex-wrap:wrap;gap:8px 14px}
 .ranking-tabs button{min-width:0}
 .final-table{min-width:580px}
