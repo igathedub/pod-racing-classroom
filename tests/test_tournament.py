@@ -10,7 +10,7 @@ from arena.tournament import CompetitionError, Tournament, rank_results
 
 
 def tracks_fn(seed=2026, count=3):
-    return [{"id": f"track-{i}", "name": f"Track {i}", "checkpoints": [[1000, 1000], [8000, 4000], [1000, 8000]]} for i in range(count)]
+    return [{"id": f"track-{i}", "name": f"Track {i}", "checkpoints": [[1000 + i * 50, 1000], [8000, 4000 + i * 50], [1000, 8000]]} for i in range(count)]
 
 
 def sandbox_ready():
@@ -24,6 +24,7 @@ def fake_race(entries, track, *, laps=2, max_turns=700, collisions=False, on_fra
         finished = not invalid and entry["alias"] != "DNF"
         rows.append({"id": entry["id"], "alias": entry["alias"], "place": index + 1, "finished": finished,
                      "disqualified": invalid, "error": "crash: secret-source-do-not-expose" if invalid else None,
+                     "finish_time": float(19.5 + index) if finished else None,
                      "turns": 20 + index if finished else max_turns, "passed": 6 if finished else 2, "distance_to_checkpoint": 10})
     frames = [{"turn": turn, "pods": [{**row, "x": 1000 + turn, "y": 1000, "vx": 1, "vy": 0, "angle": 0, "next_checkpoint": 1, "boost_available": True, "code": entry["code"]} for row, entry in zip(rows, entries)]} for turn in range(2)]
     for frame in frames:
@@ -105,6 +106,10 @@ def test_common_tracks_top_five_and_immutable_versions(tournament):
     assert board[-1]["disqualified"]
     tournament.start_final()
     join(tournament)
+    assert len(calls) == 24
+    assert [track['id'] for _, track, _ in calls[-3:]] == ['track-3', 'track-4', 'track-5']
+    assert tournament.store.get('job')['completed'] == tournament.store.get('job')['total'] == 3
+    assert len(tournament.store.get('final_replay_ids')) == 3
     assert len(calls[-1][0]) == 5
     assert "collisions" not in calls[-1][2]
     assert [entry["id"] for entry in calls[-1][0]] == [row["id"] for row in board if not row["disqualified"]][:5]

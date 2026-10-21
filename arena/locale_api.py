@@ -7,6 +7,10 @@ from urllib.parse import parse_qs
 
 
 MESSAGES = {
+    "Three-track final complete.": "Das Drei-Strecken-Finale ist abgeschlossen.",
+    "Three-track final complete; no bot finished all three tracks, so no champion was crowned.": "Das Drei-Strecken-Finale ist abgeschlossen. Kein Bot hat alle drei Strecken beendet, deshalb gibt es keinen Gesamtsieger.",
+    "Up to five eligible snapshot bots race on three different final tracks without collisions. At least two needed. Only a bot finishing all three can become champion.": "Bis zu fünf zugelassene Bots fahren mit ihrem eingefrorenen Code ohne Kollisionen auf drei anderen Finalstrecken. Mindestens zwei sind erforderlich. Nur ein Bot, der alle drei beendet, kann Gesamtsieger werden.",
+    "Lowest sum of the three final race times wins. Qualification times are excluded. All three final tracks must be finished without disqualification. Ties use case-folded alias then UUID. Times are simulated turns, not wall-clock seconds.": "Die kleinste Summe der drei Finalzeiten gewinnt. Zeiten der Qualifikation zählen nicht mit. Alle drei Finalstrecken müssen ohne Disqualifikation beendet werden. Bei Gleichstand entscheiden Alias ohne Beachtung der Großschreibung und dann UUID. Zeiten sind simulierte Spielzüge, keine Echtzeit-Sekunden.",
     "Classroom access required.": "Bitte der Klasse mit dem Einladungscode beitreten.",
     "Invitation is invalid or expired.": "Der Einladungscode ist ungültig oder abgelaufen.",
     "Classroom participant capacity reached.": "Alle Teilnahmeplätze sind belegt.",
@@ -76,7 +80,8 @@ MESSAGES = {
     "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD remains accepted and prevents thrust for three turns; it has no collision effect.": "Kurs-Variante, nicht die offizielle CodinGame-Engine: Breite 16000, Höhe 9000, Checkpoint-Radius 600, Pod-Radius 400, Drehung 18 Grad pro Spielzug, Reibungsfaktor 0,85, BOOST 650. SHIELD bleibt erlaubt und verhindert drei Spielzüge lang Schub; es hat keine Kollisionswirkung.",
     "Python syntax checked without execution; bot execution only in restricted Docker.": "Die Python-Syntax wird ohne Ausführung geprüft; Bots laufen ausschließlich in eingeschränkten Docker-Containern.",
 }
-COURSES = {"Wide Circuit": "Breiter Rundkurs", "Five Corners": "Fünf Kurven", "Switchback": "Zickzackstrecke"}
+COURSES = {"Wide Circuit": "Breiter Rundkurs", "Five Corners": "Fünf Kurven", "Switchback": "Zickzackstrecke",
+           "Hairpin Run": "Haarnadelkurs", "Diamond Loop": "Diamantrunde", "Technical Loop": "Technikrunde"}
 
 
 def select_language(query: str | None = None, accept: str = "") -> str:
@@ -119,6 +124,12 @@ def translate(message, language: str):
     match = re.fullmatch(r"Racing (\d+) finalists simultaneously\.", message)
     if match:
         return f"{match[1]} Finalisten fahren gleichzeitig."
+    match = re.fullmatch(r"Racing (\d+) finalists over three different tracks\.", message)
+    if match:
+        return f"{match[1]} Finalisten fahren auf drei anderen Strecken."
+    match = re.fullmatch(r"Final ([1-3]) of 3 complete\.", message)
+    if match:
+        return f"Finalrennen {match[1]} von 3 abgeschlossen."
     if message.startswith("String should have at least "):
         return "Der Text ist zu kurz."
     if message.startswith("String should have at most "):
@@ -138,8 +149,9 @@ def localize_rules(rules: dict, language: str) -> dict:
     if language == "en":
         return rules
     result = deepcopy(rules)
-    for field in ("title", "racing", "qualification", "ranking", "final", "physics", "security"):
-        result[field] = translate(result[field], language)
+    for field in ("title", "racing", "qualification", "ranking", "final", "final_scoring", "physics", "security"):
+        if field in result:
+            result[field] = translate(result[field], language)
     for field in ("thrust", "opponent", "flush"):
         if field in result["protocol"]:
             result["protocol"][field] = translate(result["protocol"][field], language)
@@ -151,6 +163,9 @@ def _replay_title(metadata, language):
     if language != "de":
         return title
     if metadata.get("kind") == "final":
+        match = re.fullmatch(r"Final ([1-3])/3 · (.+) · (\d+) pods", title)
+        if match:
+            return f"Finale {match[1]}/3 · {COURSES.get(match[2], match[2])} · {match[3]} Pods"
         match = re.fullmatch(r"Final · (\d+) pods", title)
         return f"Finale · {match[1]} Pods" if match else title
     if metadata.get("kind") == "qualification":
@@ -167,7 +182,10 @@ def localize_state(state: dict, language: str) -> dict:
         if key in result["job"]:
             result["job"][key] = translate(result["job"][key], language)
     result["sandbox"]["detail"] = translate(result["sandbox"]["detail"], language)
-    for row in result["leaderboard"]:
+    for track in result.get("final_tracks", []):
+        if isinstance(track, dict) and "name" in track:
+            track["name"] = COURSES.get(track["name"], track["name"])
+    for row in result["leaderboard"] + result.get("final_leaderboard", []):
         if "error" in row:
             row["error"] = translate(row["error"], language)
     for metadata in result["replays"]:

@@ -56,13 +56,16 @@ def make_tracks(seed: int = 2026, count: int = 3) -> list[dict]:
         [(2600, 2300), (12900, 2100), (13400, 6900), (2900, 7100)],
         [(2400, 4500), (6500, 1500), (13200, 2300), (13000, 7000), (6300, 7400)],
         [(2200, 1800), (13800, 1800), (9300, 4400), (13500, 7300), (2300, 7100)],
+        [(2200, 2000), (13700, 2000), (13700, 4400), (5000, 4400), (5000, 7200), (2200, 7200)],
+        [(2200, 4500), (8000, 1500), (13800, 4500), (8000, 7500)],
+        [(2200, 1800), (7800, 1600), (13600, 2800), (10400, 4500), (13600, 7200), (6500, 7300), (2500, 5200)],
     ]
-    names = ["Wide Circuit", "Five Corners", "Switchback"]
+    names = ["Wide Circuit", "Five Corners", "Switchback", "Hairpin Run", "Diamond Loop", "Technical Loop"]
     result = []
     for index in range(count):
         checkpoints = [[x + rng.randint(-300, 300), y + rng.randint(-250, 250)]
                        for x, y in templates[index % len(templates)]]
-        result.append({"id": f"track-{seed}-{index + 1}", "name": names[index % 3],
+        result.append({"id": f"track-{seed}-{index + 1}", "name": names[index % len(names)],
                        "checkpoints": checkpoints})
     return result
 
@@ -290,6 +293,7 @@ def run_race(entries: list[dict], track: dict, *, laps: int = 2, max_turns: int 
     ordered = sorted(pods, key=rank)
     results = [{"id": p.id, "alias": p.alias, "place": index + 1,
                 "finished": p.finished, "disqualified": p.disqualified, "error": p.error,
+                "finish_time": p.finish_time if p.finished and not p.disqualified else None,
                 "turns": p.turns, "passed": p.passed, "distance_to_checkpoint": distance(p)}
                for index, p in enumerate(ordered)]
     winner = next((p.id for p in ordered if p.finished and not p.disqualified), None)

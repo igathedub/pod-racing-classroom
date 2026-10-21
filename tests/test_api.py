@@ -198,10 +198,15 @@ def test_http_qualification_final_replay_persistence_reset(api):
     wait(app)
     finished = client.get("/api/state").json()
     assert finished["session"]["status"] == "finished" and finished["champion"]
+    assert finished['job']['completed'] == finished['job']['total'] == 3
+    assert len(finished['replays']) == 24
+    assert len([row for row in finished['replays'] if row['kind'] == 'final']) == 3
     replay_id = finished["active_replay_id"]
     replay = client.get(f"/api/replays/{replay_id}")
     assert replay.status_code == 200
     assert replay.json()["collisions"] is False and len(replay.json()["entries"]) == 5
+    assert replay.json()['series_index'] == replay.json()['series_total'] == 3
+    assert all(isinstance(row['finish_time'], float) for row in replay.json()['results'])
     assert "private-student-source" not in replay.text and "claim_token" not in replay.text and '"code"' not in replay.text
     assert TOKEN not in replay.text and "secret-source" not in replay.text
     assert client.get("/api/replays/not-a-uuid").status_code == 404

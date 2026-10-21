@@ -39,6 +39,8 @@ def test_practice_qualifiers_final_and_live_archives_are_collision_free(tmp_path
     join(tournament)
     tournament.start_final()
     join(tournament)
+    assert len(calls) == 10  # Private practice, six qualifiers, three finals.
+    assert len(store.get('final_replay_ids')) == 3
     assert all(replay['collisions'] is False for replay in writes)
     assert all('collisions' not in kwargs for kwargs in calls)
     assert store.get('champion') is not None

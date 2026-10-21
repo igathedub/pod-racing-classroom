@@ -269,13 +269,15 @@ def test_docker_examples_actually_finish_races(docker_ready, filename, track):
 
 
 @pytest.mark.docker
-def test_docker_five_real_pods_race_without_contact_and_produce_a_winner(docker_ready):
+@pytest.mark.parametrize('track', make_tracks(count=6)[3:], ids=lambda track: track['id'])
+def test_docker_five_real_pods_race_without_contact_and_produce_a_winner(docker_ready, track):
     filenames = ["boost.py", "cornering.py", "momentum.py", "sprinter.py", "cautious.py"]
     entries = [{"id": str(index), "alias": filename,
                 "code": (ROOT / "examples" / filename).read_text(encoding="utf-8")}
                for index, filename in enumerate(filenames)]
-    replay = run_race(entries, make_tracks()[0])
+    replay = run_race(entries, track)
     assert replay["winner_id"] is not None
     assert len(replay["frames"][-1]["pods"]) == 5
     assert all(not item["disqualified"] for item in replay["results"])
     assert all(item["finished"] for item in replay["results"])
+    assert all(isinstance(item['finish_time'], float) and item['finish_time'] > 0 for item in replay['results'])

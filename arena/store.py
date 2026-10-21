@@ -128,12 +128,19 @@ class Store:
                         return row.get('id') == submission_id or str(row.get('alias', '')).casefold() == alias_key
 
                     updates = {}
-                    for key in ('snapshot', 'leaderboard', 'finalists'):
+                    for key in ('snapshot', 'leaderboard', 'finalists', 'final_leaderboard'):
                         rows = config.get(key)
                         if rows is not None:
                             if not isinstance(rows, list) or any(not isinstance(row, dict) or not isinstance(row.get('id'), str) or not isinstance(row.get('alias'), str) for row in rows):
                                 raise ValueError("Invalid competition state")
                             updates[key] = [row for row in rows if not matches(row)]
+                    if 'final_leaderboard' in updates:
+                        updates['final_leaderboard'] = [{**row, 'rank': index} for index, row in enumerate(updates['final_leaderboard'], 1)]
+                    final_replay_ids = config.get('final_replay_ids', [])
+                    if (not isinstance(final_replay_ids, list)
+                            or any(not self.valid_id(key) for key in final_replay_ids)
+                            or len(set(final_replay_ids)) != len(final_replay_ids)):
+                        raise ValueError("Invalid final replay references")
                     if 'leaderboard' in updates:
                         updates['leaderboard'] = [{**row, 'rank': index} for index, row in enumerate(updates['leaderboard'], 1)]
                         if config.get('session', {}).get('status') == 'qualified':
@@ -185,6 +192,10 @@ class Store:
                                 raise ValueError("Conflicting moderation staging file")
                     if config.get('active_replay_id') in removed:
                         updates['active_replay_id'] = None
+                    if removed.intersection(final_replay_ids):
+                        # One missing course invalidates the entire published sum.
+                        # Never crown a replacement from incomplete/historical rows.
+                        updates.update(final_replay_ids=[], final_leaderboard=[], champion=None)
                     updates['moderation_revision'] = revision
                     db.execute("DELETE FROM submissions WHERE id=?", (submission_id,))
                     db.executemany("DELETE FROM replays WHERE id=?", [(key,) for key in sorted(removed)])

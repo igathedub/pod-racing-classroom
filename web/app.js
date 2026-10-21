@@ -106,8 +106,8 @@
     $('close-session').disabled = !adminReady || session !== 'open';
     $('qualify').disabled = !adminReady || !app.state?.submissions?.length || !app.state?.sandbox?.available || ['qualified', 'finished', 'final'].includes(session);
     $('run-final').disabled = !adminReady || !app.state?.sandbox?.available || session !== 'qualified' || finalCount < 2;
-    text('run-final', t(finalCount === 1 ? 'Run final · {count} pilot' : 'Run final · {count} pilots', { count: finalCount }));
-    text('final-hint', session === 'qualified' ? finalCount < 2 ? t(finalCount === 1 ? 'Only {count} eligible pilot. At least 2 are required for a final.' : 'Only {count} eligible pilots. At least 2 are required for a final.', { count: finalCount }) : t('{eligible} eligible after qualification. The best {count} will race together without collisions.', { eligible: eligible.length, count: finalCount }) : t('At least 2 eligible pilots are required. The final takes up to 5 from the frozen qualification results.'));
+    text('run-final', t(finalCount === 1 ? 'Run three-track final · {count} pilot' : 'Run three-track final · {count} pilots', { count: finalCount }));
+    text('final-hint', session === 'qualified' ? finalCount < 2 ? t(finalCount === 1 ? 'Only {count} eligible pilot. At least 2 are required for a final.' : 'Only {count} eligible pilots. At least 2 are required for a final.', { count: finalCount }) : t('{eligible} eligible after qualification. The best {count} race on three other tracks without collisions; the lowest total final time wins.', { eligible: eligible.length, count: finalCount }) : t('At least 2 eligible pilots are required. The three-track final takes up to 5 from the frozen qualification results.'));
     $('seed-demo').disabled = !adminReady || session !== 'waiting' || Boolean(app.state?.submissions?.length);
     $('reset').disabled = !adminReady;
     $('inspect-code').disabled = !app.online || !adminToken || app.adminBusy || !$('inspect-select').value;
@@ -170,7 +170,7 @@
     $('sandbox-label').title = state.sandbox.detail || '';
     document.querySelector('.sandbox-status').classList.toggle('offline', !state.sandbox.available);
     const job = state.job;
-    text('job-heading', job.status === 'running' ? t('{phase} running', { phase: t(job.phase === 'final' ? 'Final' : 'Qualification') }) : job.status === 'failed' ? t('Job failed') : job.status === 'finished' ? t('Job complete') : t('No job running'));
+    text('job-heading', job.status === 'running' ? t('{phase} running', { phase: t(job.phase === 'final' ? hasFinalSeries() ? 'Three-track final' : 'Final' : 'Qualification') }) : job.status === 'failed' ? t('Job failed') : job.status === 'finished' ? t('Job complete') : t('No job running'));
     const total = Math.max(1, Number(job.total) || 0);
     $('job-progress').max = total;
     $('job-progress').value = Math.min(total, Number(job.completed) || 0);
@@ -264,7 +264,7 @@
   function selectReplay(id) {
     if (!id || id === app.replayId) return;
     app.replayId = id; app.replay = null; app.practiceReplay = null; app.localReplay = false; app.position = 0; app.finishTurns.clear(); app.processedFrames = 0;
-    app.bounds = defaultBounds(); updateChampionLabel();
+    app.bounds = defaultBounds(); updateChampionLabel(); renderRankings();
     app.playing = !reducedMotion; app.lastRankingPaint = 0;
     $('race-empty').hidden = false; $('race-empty').querySelector('h2').textContent = t('Loading race…'); $('race-empty').querySelector('p').textContent = t('Fetching the recorded circuit and actual pod positions.');
     $('winner-overlay').hidden = true;
@@ -347,8 +347,52 @@
     return palette[index >= 0 ? index % palette.length : 0];
   }
   function cell(row, value, className = '') { const td = document.createElement('td'); td.textContent = String(value ?? '—'); td.className = className; row.append(td); return td; }
+  function finalTime(value) {
+    return Number.isFinite(value) ? value.toLocaleString(window.PodLocale.language, { minimumFractionDigits: 3, maximumFractionDigits: 3, useGrouping: false }) : '—';
+  }
+  function hasFinalSeries() {
+    return Boolean(app.state?.final_format || app.state?.final_replay_ids?.length);
+  }
+  function currentSeriesFinish() {
+    const ids = app.state?.final_replay_ids || [];
+    return hasFinalSeries() && ids.length === 3 && new Set(ids).size === 3
+      && ids.every(id => app.state?.replays?.some(item => item.id === id && item.kind === 'final'))
+      && !app.localReplay && app.replayId === ids[2] && app.replay?.id === ids[2]
+      && app.replay?.series_index === 3 && app.replay?.series_total === 3
+      && app.replay?.status === 'finished' && app.replay.frames.length > 0
+      && app.position >= app.replay.frames.length - 1
+      && app.state?.job?.status === 'finished' && app.state?.session?.status === 'finished';
+  }
+  function finalResultsVisible() { return view === 'teacher' || currentSeriesFinish(); }
+  function renderFinalRankings() {
+    const visible = finalResultsVisible();
+    const rows = visible ? app.state?.final_leaderboard || [] : [];
+    text('rank-heading', t('Final overall standings'));
+    text('rank-eyebrow', t('CLASSROOM RESULTS'));
+    text('rank-count', t('{count} {kind}', { count: rows.length, kind: t('ENTRIES') }));
+    text('rank-scoring', t('Final times in simulated turns; lowest valid total wins.'));
+    $('rankings').replaceChildren();
+    if (!rows.length) { const p = document.createElement('p'); p.className = 'empty-copy'; p.textContent = t(visible ? 'No three-track final results yet.' : 'Final overall results are revealed at the end of the third current final replay.'); $('rankings').append(p); return; }
+    const table = document.createElement('table'); table.className = 'rank-table final-table';
+    const caption = document.createElement('caption'); caption.className = 'visually-hidden'; caption.textContent = t('Final ranking across three different courses, in simulated turns'); table.append(caption);
+    const thead = document.createElement('thead'); const heading = document.createElement('tr');
+    for (const label of ['#', t('Pilot'), t('Final 1'), t('Final 2'), t('Final 3'), t('Total')]) { const th = document.createElement('th'); th.scope = 'col'; th.textContent = label; heading.append(th); }
+    thead.append(heading); table.append(thead); const tbody = document.createElement('tbody');
+    // Preserve authoritative server order/rank; rounding is presentation only.
+    for (const pilot of rows) {
+      const row = document.createElement('tr'); cell(row, pilot.rank);
+      const name = cell(row, pilot.alias); const meta = document.createElement('span'); meta.className = 'pilot-meta status-text';
+      meta.textContent = pilot.disqualified ? 'DQ' : `${pilot.completed_tracks}/3`; name.append(meta);
+      for (let i = 0; i < 3; i++) cell(row, Number.isFinite(pilot.race_times?.[i]) ? finalTime(pilot.race_times[i]) : pilot.disqualified ? 'DQ' : Number(app.state?.job?.completed) > i ? 'DNF' : '—', 'number');
+      cell(row, pilot.disqualified ? 'DQ' : Number.isFinite(pilot.total_time) ? finalTime(pilot.total_time) : app.state?.job?.completed === 3 ? 'DNF' : '—', 'number');
+      tbody.append(row);
+    }
+    table.append(tbody); $('rankings').append(table);
+  }
   function renderRankings() {
+    if (app.ranking === 'final') { renderFinalRankings(); return; }
     const raceMode = app.ranking === 'race';
+    text('rank-scoring', t(raceMode ? 'Ranked by finish, then progress' : 'Qualification ranking across three courses'));
     const rows = raceMode ? sortedPods() : app.state?.leaderboard || [];
     text('rank-heading', raceMode ? t('Live race positions') : t('Qualification standings'));
     text('rank-eyebrow', raceMode ? t('ON THE CIRCUIT') : t('CLASSROOM RESULTS'));
@@ -377,14 +421,15 @@
   }
   function chooseRanking(mode) {
     app.ranking = mode;
-    for (const [name, buttonId] of [['qualification', 'tab-qualification'], ['race', 'tab-race']]) { $(buttonId).setAttribute('aria-selected', String(mode === name)); $(buttonId).tabIndex = mode === name ? 0 : -1; }
-    $('rankings').setAttribute('aria-labelledby', mode === 'race' ? 'tab-race' : 'tab-qualification'); renderRankings();
+    for (const name of ['qualification', 'race', 'final']) { $(`tab-${name}`).setAttribute('aria-selected', String(mode === name)); $(`tab-${name}`).tabIndex = mode === name ? 0 : -1; }
+    $('rankings').setAttribute('aria-labelledby', `tab-${mode}`); renderRankings();
   }
   function updateChampionLabel() {
     const champion = app.state?.champion;
     const finalReplay = !app.localReplay && app.state?.replays?.some(replay => replay.id === app.replayId && replay.id === app.replay?.id && replay.kind === 'final');
-    const revealed = view === 'teacher' || (finalReplay && app.replay?.status === 'finished' && app.replay?.winner_id === champion?.id && app.replay.frames.length > 0 && app.position >= app.replay.frames.length - 1);
-    text('champion-label', !champion ? t('No classroom champion yet.') : revealed ? t('CLASSROOM CHAMPION / {alias}', { alias: champion.alias }) : t('Final result revealed at the finish.'));
+    const revealed = hasFinalSeries() ? finalResultsVisible() : view === 'teacher' || (finalReplay && !app.replay?.series_total && app.replay?.status === 'finished' && app.replay?.winner_id === champion?.id && app.replay.frames.length > 0 && app.position >= app.replay.frames.length - 1);
+    const noSeriesFinisher = hasFinalSeries() && app.state?.session?.status === 'finished' && app.state?.job?.status === 'finished';
+    text('champion-label', hasFinalSeries() && !revealed ? t('Final overall results are revealed at the end of the third current final replay.') : !champion ? t(noSeriesFinisher ? 'No bot finished all three final tracks.' : 'No classroom champion yet.') : revealed ? t('CLASSROOM CHAMPION / {alias}', { alias: champion.alias }) : t('Final result revealed at the finish.'));
   }
   function updatePlaybackUI() {
     const frames = app.replay?.frames || [];
@@ -392,17 +437,17 @@
     const turn = frames[index]?.turn || 0;
     const lastTurn = frames[frames.length - 1]?.turn || 0;
     text('turn-label', `${turn} / ${lastTurn}`); $('scrubber').value = app.position;
-    const seconds = turn / TURN_RATE;
-    text('race-time', `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${(seconds % 60).toFixed(1).padStart(4, '0')}`);
+    text('race-time', t('{turns} turns', { turns: turn }));
     text('play-pause', app.playing ? t('Pause') : t('Play')); $('play-pause').setAttribute('aria-label', app.playing ? t('Pause replay') : t('Play replay'));
     const atEnd = app.replay?.status === 'finished' && frames.length && app.position >= frames.length - 1;
     const winnerId = app.replay?.winner_id;
     $('winner-overlay').hidden = !atEnd;
     if (atEnd) {
       const winner = app.replay.entries.find(entry => entry.id === winnerId);
-      $('winner-overlay').querySelector('.eyebrow').textContent = winner ? t('RACE WINNER') : t('RACE COMPLETE');
-      text('winner-name', winner ? winner.alias : t('No finishing winner'));
-      text('winner-detail', winner ? t('{laps} laps · {pilots} pilots', { laps: app.replay.laps, pilots: app.replay.entries.length }) : t('See standings for finishing status and progress.'));
+      const overall = currentSeriesFinish();
+      $('winner-overlay').querySelector('.eyebrow').textContent = overall ? t('FINAL OVERALL') : winner ? t('RACE WINNER') : t('RACE COMPLETE');
+      text('winner-name', overall ? app.state?.champion?.alias || t('No overall champion') : winner ? winner.alias : t('No finishing winner'));
+      text('winner-detail', overall ? winner ? t('Race winner: {alias}. Overall ranking uses all three final times.', { alias: winner.alias }) : t('Overall ranking uses all three final times.') : winner ? t('{laps} laps · {pilots} pilots', { laps: app.replay.laps, pilots: app.replay.entries.length }) : t('See standings for finishing status and progress.'));
     }
     updateChampionLabel();
   }
@@ -510,7 +555,7 @@
       if (app.position >= frames.length - 1 && app.replay.status !== 'running') app.playing = false;
     }
     paintRace();
-    if (timestamp - app.lastRankingPaint > 250) { app.lastRankingPaint = timestamp; updatePlaybackUI(); if (app.ranking === 'race') renderRankings(); }
+    if (timestamp - app.lastRankingPaint > 250) { app.lastRankingPaint = timestamp; updatePlaybackUI(); if (app.ranking !== 'qualification') renderRankings(); }
     requestAnimationFrame(animate);
   }
   function sourceSize() {
@@ -647,7 +692,7 @@
   $('close-session').addEventListener('click', () => adminAction('/api/admin/session/close', {}, t('Submission session closed.')));
   $('seed-demo').addEventListener('click', () => adminAction('/api/admin/demo', {}, t('Example bots inserted. Run qualification to produce actual results.')));
   $('qualify').addEventListener('click', () => { if (app.state?.submissions?.length && confirm(t('Close submissions and freeze the current bots for qualification on 3 common courses?'))) { setFollowing(true); adminAction('/api/admin/qualify', {}, t('Qualification accepted. Follow worker progress and live replays.')); } });
-  $('run-final').addEventListener('click', () => { setFollowing(true); chooseRanking('race'); adminAction('/api/admin/final', {}, t('Final accepted. The eligible finalists race together on the showcase circuit.')); });
+  $('run-final').addEventListener('click', () => { setFollowing(true); chooseRanking('race'); adminAction('/api/admin/final', {}, t('Three-track final accepted. The eligible finalists race on three other tracks; the lowest valid total time wins.')); });
   $('reset').addEventListener('click', () => { $('reset-confirm').value = ''; $('reset-dialog').showModal(); $('reset-confirm').focus(); });
   $('cancel-reset').addEventListener('click', () => $('reset-dialog').close());
   $('reset-form').addEventListener('submit', async event => { event.preventDefault(); if ($('reset-confirm').value !== 'RESET') return; if (await adminAction('/api/admin/reset', { confirm: 'RESET' }, t('Classroom reset. Open a new session when ready.'))) { $('reset-dialog').close(); setFollowing(true); clearReplay(); $('inspected-code').textContent = ''; $('inspected-code').hidden = true; } });
@@ -684,9 +729,13 @@
   $('speed').addEventListener('change', event => { app.speed = Number(event.target.value); });
   $('fullscreen').addEventListener('click', fullscreen);
   document.addEventListener('fullscreenchange', () => { text('fullscreen', document.fullscreenElement ? t('Exit fullscreen') : t('Fullscreen')); resizeCanvas(); });
-  $('tab-qualification').addEventListener('click', () => chooseRanking('qualification')); $('tab-race').addEventListener('click', () => chooseRanking('race'));
+  for (const mode of ['qualification', 'race', 'final']) $(`tab-${mode}`).addEventListener('click', () => chooseRanking(mode));
   document.querySelector('.ranking-tabs').addEventListener('keydown', event => {
-    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const mode = event.key === 'Home' ? 'qualification' : event.key === 'End' ? 'race' : app.ranking === 'race' ? 'qualification' : 'race'; chooseRanking(mode); $(mode === 'race' ? 'tab-race' : 'tab-qualification').focus(); }
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault(); const modes = ['qualification', 'race', 'final'];
+      const index = event.key === 'Home' ? 0 : event.key === 'End' ? modes.length - 1 : (modes.indexOf(app.ranking) + (event.key === 'ArrowRight' ? 1 : -1) + modes.length) % modes.length;
+      chooseRanking(modes[index]); $(`tab-${modes[index]}`).focus();
+    }
   });
   document.addEventListener('keydown', event => {
     if (event.target.closest('input,textarea,select,button,a,summary,dialog') || event.ctrlKey || event.altKey || event.metaKey) return;

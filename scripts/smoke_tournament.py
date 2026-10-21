@@ -39,6 +39,9 @@ while True:
 
 
 def main() -> None:
+    sys.path.insert(0, str(ROOT))
+    from scripts.deployment_probe import verify_final_series
+
     scratch = Path(os.environ.get("TMPDIR", ROOT / "artifacts"))
     scratch.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="pod-acceptance-", dir=scratch) as directory:
@@ -111,12 +114,15 @@ def main() -> None:
                 client.post("/api/admin/final", headers=headers).raise_for_status()
                 final_state = wait_job("final")
                 assert final_state["champion"] is not None, final_state
-                final_metadata = next(item for item in reversed(final_state["replays"]) if item["kind"] == "final")
+                verification = verify_final_series(final_state, lambda replay_id: client.get(
+                    '/api/replays/' + replay_id).raise_for_status().json())
+                final_metadata = next(item for item in final_state["replays"]
+                                      if item['id'] == final_state['final_replay_ids'][-1])
                 replay = client.get(f"/api/replays/{final_metadata['id']}").raise_for_status().json()
                 assert replay["status"] == "finished"
                 assert len(replay["entries"]) == 5
                 assert len(replay["frames"]) > 5
-                assert replay["winner_id"] == final_state["champion"]["id"]
+
                 assert replay["collisions"] is False
                 assert all("code" not in entry for entry in replay["entries"])
                 result = {
@@ -126,7 +132,9 @@ def main() -> None:
                     "champion": final_state["champion"],
                     "final_frames": len(replay["frames"]),
                     "final_results": replay["results"],
-                    "checks": ["admin authorization", "alias ownership", "syntax validation", "frozen submissions", "public secret exclusion", "real Docker qualifiers", "invalid bot exclusion", "top-five selection", "real five-pod collision-free final", "persisted replay"],
+                    "final_leaderboard": final_state['final_leaderboard'],
+                    "final_series": verification,
+                    "checks": ["admin authorization", "alias ownership", "syntax validation", "frozen submissions", "public secret exclusion", "real Docker qualifiers", "invalid bot exclusion", "top-five selection", "three real five-pod collision-free finals", "reconstructed aggregate times", "persisted replays"],
                 }
                 artifacts = ROOT / "artifacts"
                 artifacts.mkdir(exist_ok=True)

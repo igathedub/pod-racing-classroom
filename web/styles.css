@@ -65,3 +65,12 @@ body[data-view=projector] .session-clock,body[data-view=projector] .race-facts,b
 #teacher-access .admin-auth{border:0;padding-top:0}
 .projector-info details summary{padding:8px 0}
 @media(max-width:900px){body[data-view=teacher] .monitor{grid-template-columns:1fr;grid-template-areas:"role" "race" "rank"}}
+
+/* Overall finals retain every time column; scroll locally instead of hiding one. */
+.rank-panel{min-width:0}
+.ranking-tabs,body[data-view=projector] .ranking-tabs{flex-wrap:wrap;gap:8px 14px}
+.ranking-tabs button{min-width:0}
+.final-table{min-width:580px}
+#rankings .final-table th,#rankings .final-table td{display:table-cell;padding-inline:10px}
+.final-table .number{white-space:nowrap}
+.final-table td:nth-child(2){overflow-wrap:anywhere;min-width:120px}
