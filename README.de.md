@@ -1,238 +1,150 @@
-# Pod Racing Classroom – deutsche Anleitung
+# Pod Racing Classroom
 
-[English documentation](README.md)
+**Python-Bots. Faire Qualifikation. Ein Klassenfinale auf drei Strecken.**
 
-**Geschützter Codeweek-Betrieb:** [Primärserver/Reserve wiederherstellen, sichern und aktualisieren](deploy/RESTORE.md). Die allgemeine Neuinstallationsanleitung unten ersetzt keinen Restore vorhandener Unterrichtsdaten.
+Entwickelt für die **Codeweek 2026 in Wiesbaden**. Eine selbst betriebene Unterrichtswebsite mit deutscher/englischer Lernenden-, Lehrkraft- und Beameransicht, Alias-Abgaben, privaten Testrennen und animierten Rennaufzeichnungen. Lernende brauchen einen Browser; die Lehrkraft betreibt Docker.
 
-Eine lokal betriebene Website für Python-Programmierkurse: Die Lernenden reichen Programme unter einem Alias ein, fahren eine faire Qualifikation und sehen anschließend ein animiertes Finale der besten fünf Bots. Die Oberfläche bietet **Deutsch und Englisch** mit einem Sprachschalter auf jeder Ansicht. Das Spiel ist eine eigenständige Unterrichtsvariante, **nicht** der offizielle CodinGame-Schiedsrichter. Jede Person steuert einen Pod; das Finale mit fünf Pods ist ausdrücklich keine Gold-Liga-Simulation.
+Ein eigenständiges, von CodinGame inspiriertes Unterrichtsspiel, **kein offizieller Referee und kein mit CodinGame verbundenes Produkt**. Jede Person steuert einen Pod; das Fünferfinale ist keine Gold-Liga-Simulation mit zwei Pods je Team.
 
-## Sprache und Programmierphase
+[English](README.md) · [KI-gestützte Einrichtung](docs/agent-setup.md) · [Sicherheit](SECURITY.md) · [Mitmachen](CONTRIBUTING.md) · [MIT-Lizenz](LICENSE)
 
-Im Kopfbereich **Deutsch** oder **English** auswählen. Die Auswahl bleibt in diesem Browser gespeichert. Mit `/?lang=de`, `/teacher?lang=de` oder `/projector?lang=de` lassen sich deutsche Ansichten direkt teilen. `?lang=en` wählt Englisch. Ein Sprachwechsel lädt die Seite nicht neu und behält Codeentwürfe, Bot-Namen, private Schlüssel und die Position einer Rennaufzeichnung.
+## Schnellstart: Installation auswählen
 
-Die Sitzung heißt **Programmierphase** (englisch: **Coding session**); die voreingestellte Abgabezeit bleibt zwei Stunden, also 7200 Sekunden. Anleitungen, Bedienelemente, Regeln, bekannte Fehlermeldungen und Kommentare des Startcodes sind übersetzt. Python-Bezeichner, Protokollwörter, eingereichter Code und Bot-Namen werden nicht verändert. Unbekannte technische Diagnosen bleiben unverändert, statt falsch übersetzt zu werden.
+Für beide Wege ist **Docker mit Compose** erforderlich: Docker Desktop mit **Linux-Containern** unter Windows/macOS oder Docker Engine mit Compose-Plugin unter Linux. Docker vorher starten. Bei Verwendung eines Archivs werden auf dem Host weder Python, Git, Node.js, npm noch uv benötigt. Der erste Download/Bau braucht Internet; mit vorhandenen Images läuft der Unterricht lokal ohne Cloud-Dienst oder CodinGame-Konto.
 
-## Auf einem anderen Computer installieren
+### Fertiges Release-ZIP — Veröffentlichung noch ausstehend
 
-Benötigt werden nur **Docker mit Docker Compose** und der Quellcodeordner:
+Für das erste Release **v1.0.0** ist **`Pod-Racing-Classroom-v1.0.0.zip`** unter [GitHub Releases](https://github.com/igathedub/pod-racing-classroom/releases) vorgesehen. **ZIP und Images erst als verfügbar betrachten, wenn das Release tatsächlich veröffentlicht ist.** GitHubs automatisch erzeugtes „Source code“-Archiv ist nicht das fertige Installationspaket. Bis dahin den Quellcode-Weg unten verwenden.
 
-- **Windows:** Docker Desktop starten und Linux-Container verwenden, nicht Windows-Container.
-- **macOS:** Docker Desktop installieren und starten.
-- **Linux:** Docker Engine und das Compose-Plugin installieren; der angemeldete Benutzer muss den Docker-Daemon ansprechen können.
+Nach Veröffentlichung:
 
-Python, uv, Node.js und npm müssen auf dem Gastgeber-Rechner **nicht** installiert sein. Zum ersten Bau der Images ist Internetzugang nötig. Danach läuft der Unterricht lokal, ohne Cloud-Dienst oder CodinGame-Konto.
+1. Das genannte ZIP herunterladen und in einen neuen, eigenen Unterrichtsordner entpacken. Diesen Ordner für weitere Starts und Updates behalten.
+2. Windows: **`Start.cmd`** doppelklicken. macOS/Linux: im entpackten Ordner **`sh Start.sh`** ausführen. Diese Helfer laden versionierte App-/Bot-Images; sie bauen keinen Quellcode.
+3. Auf Betriebsbereitschaft warten. **http://localhost:8765/teacher** öffnen und den **Teacher admin token** aus dem lokalen Startfenster/Log eingeben. Nicht projizieren, in Chats kopieren oder veröffentlichen.
+4. Beamer: **http://localhost:8765/projector**. Lernendenansicht auf diesem Rechner: **http://localhost:8765/**.
 
-1. Den Quellcode als Archiv entpacken oder mit installiertem Git klonen:
-   ```text
-   git clone https://github.com/igathedub/pod-racing-classroom.git
-   cd pod-racing-classroom
-   ```
-   Das Repository enthält den öffentlichen Quellcode. Die Lernenden brauchen keinen GitHub-Zugang. Zugangsdaten, Datenbanken und Lehrkraft-Schlüssel bleiben privat und werden nicht mit dem Quellcode weitergegeben.
-2. Im Projektordner ausführen:
-   ```text
-   docker compose up --build -d
-   docker compose ps
-   docker compose logs classroom
-   ```
-   Warten, bis `classroom` als **healthy** angezeigt wird. Compose baut automatisch das Bot-Image `pod-classroom-bot:local`, lässt einen vertrauenswürdigen Abschlussmarker laufen und startet erst dann die Anwendung. In den Logs steht **Teacher admin token**: Dieser geheime Schlüssel wird für jede neue Dateninstallation zufällig erzeugt, dauerhaft gespeichert und beim Neustart erneut angezeigt. Es gibt kein voreingestelltes Passwort. Die Logs nicht projizieren oder öffentlich teilen.
-3. `http://localhost:8765/teacher` öffnen und den Schlüssel eingeben. Die Projektoransicht befindet sich unter `http://localhost:8765/projector`. Standardmäßig ist die Website nur auf diesem Computer erreichbar (`127.0.0.1`).
+Der Release-Vertrag sieht `ghcr.io/igathedub/pod-racing-classroom-app:1.0.0` und `ghcr.io/igathedub/pod-racing-classroom-bot:1.0.0` vor, nicht `latest`. Diese Anleitung behauptet **keinen geprüften anonymen Image-Download oder bereits erfolgte Veröffentlichung**. Neue Installationen nutzen das einzeilige **checkpoint-only**-Protokoll. `Stop.cmd` beziehungsweise `sh Stop.sh` stoppen diese Installation ohne Datenlöschung. Das Schließen des Startfensters allein stoppt die Container nicht.
 
-**Bequemer Start:** Unter Windows `Docker-start.cmd` doppelklicken; unter macOS/Linux `sh Docker-start.sh` ausführen. Beide Varianten bauen/starten die Container, warten auf Betriebsbereitschaft und zeigen den Schlüssel an. Die Container laufen auch nach dem Schließen dieses Fensters weiter.
+### Aus öffentlichem Quellcode bauen — bereits möglich
 
-### Für das Klassenzimmer-Netzwerk freigeben
+Quellcodearchiv des öffentlichen Repositorys herunterladen und entpacken; alternativ mit vorhandenem Git klonen. Bis zur Veröffentlichung von v1.0.0 ist der geprüfte Anwendungsstand dieser Anleitung **`804ac8804dff8b29d0e1ccc4364bd29d0b46fdf2`**, kein veröffentlichtes Binärpaket.
 
-Eine Datei namens `.env` neben `compose.yaml` anlegen, zum Beispiel:
+Für eine **neue Installation** neben `compose.yaml` eine `.env` anlegen:
 
 ```dotenv
-POD_BIND=0.0.0.0
+COMPOSE_PROJECT_NAME=pod-classroom-mein-workshop
+POD_INPUT_PROTOCOL=checkpoint-only
+POD_BIND=127.0.0.1
 POD_PORT=8765
 ```
 
-Danach `docker compose up -d` ausführen. Den Lernenden die Adresse `http://IP-DES-KLASSENZIMMER-RECHNERS:8765/` geben. Die private WLAN-/LAN-Adresse verwenden, nicht die Adresse eines Docker- oder VPN-Adapters. Vor dem Workshop von einem zweiten Gerät testen. Für einen belegten Port kann beispielsweise `POD_PORT=18765` verwendet werden; Links und Firewall-Regeln müssen dann ebenfalls diesen Port verwenden. `POD_BIND` unterstützt die IPv4-Werte `127.0.0.1` und `0.0.0.0`.
+Jede unabhängige Installation benötigt einen eigenen Projektnamen. **Vorhandene Deployment-Konfiguration damit nicht überschreiben.** Ohne explizite Einstellung verwendet Source-Compose noch `legacy`. Das Beispiel wählt den neuen Einzeilen-Startcode; gespeicherte Bots werden nicht umgeschrieben.
 
-Nur in einem **vertrauenswürdigen privaten Netzwerk** freigeben. Keine Router-Portweiterleitung und kein öffentliches Internet-Hosting. Gäste-WLAN blockiert häufig die Verbindung zwischen Geräten. Die Schul-IT kann ein geeignetes Netzwerk und die tatsächliche Erreichbarkeit prüfen; Docker Engine unter Linux kann Ports unabhängig von manchen Host-Firewall-Regeln veröffentlichen.
+- **Windows:** **`Docker-start.cmd`** doppelklicken.
+- **macOS/Linux:** **`sh Docker-start.sh`** ausführen.
 
-Optional kann die IT unter Windows als Administrator TCP 8765 ausschließlich für das lokale Subnetz im privaten Netzwerk erlauben:
+Diese vorhandenen Quellcode-Starter bauen App und Sandbox, warten auf Betriebsbereitschaft und zeigen lokale Logs. Anschließend die oben genannten URLs verwenden. Gleichwertige Befehle im Installationsordner:
 
-```powershell
-New-NetFirewallRule -DisplayName 'Pod Racing Classroom' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8765 -Profile Private -RemoteAddress LocalSubnet
+```sh
+docker compose up --build -d --wait --wait-timeout 180
+docker compose ps
+docker compose logs classroom
 ```
 
-Diese Regel wird nicht automatisch gesetzt. Nach dem Workshop wieder entfernen. Für rein lokale Nutzung `POD_BIND=127.0.0.1` setzen und erneut `docker compose up -d` ausführen.
+Jede neue Dateninstallation erzeugt einen **eigenen zufälligen Lehrkraft-Schlüssel**, speichert ihn dauerhaft und zeigt denselben Schlüssel beim nächsten Start wieder an. Es gibt kein gemeinsames Standardpasswort. Logs privat halten. Bei verlorenem Schlüssel lokal `docker compose logs classroom` lesen, nicht die Daten löschen.
 
-## Ablauf für die Lehrkraft
+## Unterricht durchführen
 
-1. Docker und die Website starten. Prüfen, dass die Sandbox bereit ist, und den Schüler-Link auf einem anderen Gerät öffnen.
-2. In einer leeren Sitzung mit **6 Beispiel-Bots hinzufügen** echte Beispielprogramme einfügen. **Qualifikation starten** und danach **Drei-Strecken-Finale starten** zum Probelauf nutzen. Vor dem Unterricht die Demo über die ausdrücklich bestätigte Reset-Funktion löschen.
-3. Unter `/teacher` auf **Programmierphase starten** klicken. Erst dann sind Einreichungen möglich.
-4. Die Lernenden wählen einen Alias und fügen ihren Python-Code ein oder laden eine `.py`-Datei hoch. Änderungen sind bis zum Einsendeschluss möglich. Das Browser-Token schützt den Alias; derselbe Browser sollte weiterverwendet werden. Quellcode zusätzlich selbst speichern.
-5. Am Ende die Einreichung schließen oder den Countdown ablaufen lassen. Mit **Qualifikation starten** die Qualifikation starten. Alle Programme fahren dieselben drei deterministischen Strecken ohne Kollisionen; ihre Quellcodeversionen werden dabei eingefroren. Fehlerhafte Programme sind nicht fürs Finale zugelassen.
-6. Nach abgeschlossener Qualifikation **Drei-Strecken-Finale starten** wählen. Bis zu fünf zugelassene Programme fahren mit eingefrorenem Code auf drei **anderen** Strecken ohne Kollisionen. Mindestens zwei Programme sind erforderlich.
-7. `/projector` im Vollbild projizieren. **Rennplatzierungen** zeigt nur das gerade angezeigte Rennen; **Finale gesamt** zeigt die separate Gesamtwertung. Die drei Finalzeiten werden addiert: Die kleinste gültige Summe gewinnt, nicht unbedingt der Sieger des letzten Rennens. Wiedergabe pausieren, beschleunigen oder erneut ansehen.
+1. Vorab in einer **separaten leeren Demo-Installation** die sechs Beispiel-Bots hinzufügen, Qualifikation und Drei-Strecken-Finale testen. Niemals einen echten Klassenraum für einen Test zurücksetzen.
+2. Unter `/teacher` die Programmierphase öffnen. Voreinstellung: **120 Minuten**; möglich sind **1–1440 ganze Minuten**. „Restzeit setzen“ zählt ab dem Klick. Die Abgabefrist ist nicht die Gültigkeitsdauer einer Einladung.
+3. Lernende wählen einen Alias und fügen Python-Code ein oder laden eine Datei hoch. Änderungen bis zur Frist verwenden den privaten Besitzschlüssel desselben Browsers. Quellcode zusätzlich speichern; Besitzschlüssel und Lehrkraft-Schlüssel sind verschieden.
+4. Abgabe schließen und Qualifikation starten. Dabei werden Quellcodeversionen eingefroren. Bis zu **100 Abgaben** sind möglich, nicht 100 gleichzeitig fahrende Pods.
+5. Danach das Finale mit den besten **bis zu fünf** zugelassenen Bots starten; mindestens zwei sind nötig. Die Beameransicht projizieren, nicht die Zugangsdaten. **Finale gesamt** ist von den Positionen des gerade gezeigten Rennens getrennt.
 
-Den Lehrkraft-Schlüssel und das Loginfeld nicht projizieren. Sitzung, Deadline und Ergebnisse überstehen einen Neustart. Ein unterbrochener Turnierauftrag wird als fehlgeschlagen markiert, nicht automatisch fortgesetzt. Während eines laufenden Turniers nicht aktualisieren oder zurücksetzen.
+Lehrkräfte können eine Abgabe nach Bestätigung löschen. Dabei werden **alle Replays mit diesem Bot**, auch gemeinsame Finalreplays, entfernt. Während laufender Rennen/Aufträge ist Löschen gesperrt. Es ist keine dauerhafte Personensperre.
 
-## Optionaler zeitlich begrenzter Klassenzugang
+## Regeln und Python-Schnittstelle
 
-Ohne Opt-in bleibt der private Betrieb unverändert: `POD_CLASS_ACCESS_REQUIRED=0`
-ist der Standard. Für den Einladungsschutz diese Compose-Einstellungen setzen
-und den Container ausschließlich über den freigegebenen Update-Ablauf erneuern:
-
-```dotenv
-POD_CLASS_ACCESS_REQUIRED=1
-POD_CLASS_COOKIE_SECURE=1
-POD_PARTICIPANT_SUBMISSIONS_PER_MINUTE=30
-POD_PARTICIPANT_PRACTICE_PER_MINUTE=6
-POD_JOIN_PER_MINUTE=120
-```
-
-Browser-HTTPS ist nötig. Secure-Cookies bleiben auch bei einem HTTP-Origin hinter
-einem HTTPS-Proxy aktiv. `POD_CLASS_COOKIE_SECURE=0` ist ausschließlich für isolierte
-HTTP-Tests vorgesehen, keine Empfehlung für öffentlichen Betrieb. Flags akzeptieren
-nur `0`/`1`, Anfragebudgets dezimale Ganzzahlen von 1 bis 10000. Ungültige HTTP-/Zugangs-
-Einstellungen stoppen den Start, bevor der Datenspeicher angelegt wird.
-
-Unter `/teacher` mit dem bisherigen Lehrkraft-Schlüssel anmelden. Im separaten,
-eingeklappten Bereich **Einladungen für die Klasse** einen zufälligen Code erzeugen
-oder erneuern: standardmäßig 7200 Sekunden, zulässig 1–86400 ganze Sekunden.
-Nur die authentifizierte Erzeugungsantwort und die Lehrkraft-Ansicht zeigen den
-Code; weder öffentliche Kursdaten noch Statusabfragen oder Logs enthalten ihn.
-SQLite speichert SHA-256-Hash, Ablaufzeit, Generation und gehashte Sitzungstokens.
-Nach einem Seitenneuladen lässt sich der Code nicht wieder auslesen: ggf. erneuern.
-
-Auch die Beameransicht benötigt den Code. Beitritt erfolgt als JSON über
-`POST /api/join`, niemals in einer URL. Das hostgebundene HttpOnly-/SameSite=Strict-/
-Secure-Cookie gilt höchstens bis zum Einladungsablauf. Maximal 60 persistierte
-Teilnahmesitzungen; erneuter Beitritt mit gültigem Cookie verwendet dieselbe
-Sitzung und deren Budget. Abgelaufene Einträge werden beim Beitritt entfernt;
-bei voller Registrierung folgt 429, ohne aktive Teilnehmende zu verdrängen.
-Erneuern oder Widerrufen entwertet sofort alle bisherigen Teilnahmesitzungen,
-auch nach Neustarts. Wettbewerb, Einreichungen, Bot-Claim-Tokens und Replays
-bleiben unverändert. Bereits autorisierte laufende Arbeit wird nicht abgebrochen,
-bereits heruntergeladene Daten können nicht zurückgerufen werden. Nach dem
-nächsten UI-Poll erscheint wieder das Beitrittsformular; getippter Editorcode
-und lokale Bot-Schlüssel bleiben erhalten.
-
-Im Schutzmodus benötigen Kurs-/Replay-Lesezugriffe sowie Einreichungs-/Testanfragen
-ein gültiges Cookie oder den korrekten `X-Admin-Token`. Cookies geben **keine**
-Lehrkraft-Rechte; private Testrennen brauchen weiterhin den eigenen Bot-Claim.
-Lehrkraft-Lesezugriffe senden den Adminheader. Pro authentifizierter Sitzung
-sind in festen 60-Sekunden-Fenstern standardmäßig 30 Einreichungs- und 6 Testversuche
-zulässig; diese Budgets überstehen Neustarts. Zusätzlich gelten die bisherigen
-prozessweiten 240/60 Budgets, auch für Adminanfragen, sowie 120 Beitrittsversuche
-pro Minute. HTTP 429 enthält `Retry-After`. Ungültige Versuche zählen ebenfalls.
-Keine IP-Budgets und kein Vertrauen in `X-Forwarded-For` oder Cloudflare-IP-Header.
-Die globalen Zähler starten nach Neustart neu. Nur einen Appworker verwenden und
-die Serveruhr korrekt halten. Cookie-Löschen kann einen weiteren der 60 Plätze
-belegen: Der gemeinsame Code ist keine Personenidentität oder perfekte Fairness.
-
-Öffentlich: `GET /api/access` liefert nur `required`/`authorized`, `GET /api/health`
-nur `sandbox.available` (auch der Container-Healthcheck verwendet diesen Endpunkt).
-Nur mit Adminheader: `GET /api/admin/access/invitation` (aktiv, Generation, Ablauf),
-`POST /api/admin/access/invitation` mit `{"duration_seconds":7200}` oder `{}` und
-`POST /api/admin/access/revoke`. Ein vollständiger Kursreset löscht auch den
-Zugangsbestand; für zerstörungsfreien Widerruf den separaten Widerruf verwenden.
-
-**Keine Freigabe für anonymen öffentlichen Codebetrieb:** Docker-Socket und
-Hostrisiken bleiben bestehen. Edge-Schutz, direkte Origin-Absicherung, HTTPS und
-Ausführungsisolation sind separat zu prüfen. Die Einrichtung von ausschließlich
-für Lehrkräfte geltendem Cloudflare Access für den gesamten Host liegt außerhalb
-dieser Funktion. Siehe [SECURITY_PREPARATION.md](SECURITY_PREPARATION.md).
-Die isolierten Tests in `tests/test_class_access*.py` verwenden echte Chromium-
-Browser mit tatsächlicher CSP, aber injizierte Fake-Rennen/-Sandboxfunktionen:
-Sie belegen keine neue Docker-Ausführung oder produktive Bereitstellung.
-
-## Wertung des Drei-Strecken-Finales
-
-Die Qualifikation behält ihre drei bisherigen Strecken: Breiter Rundkurs (Wide Circuit), Fünf Kurven (Five Corners), Zickzackstrecke (Switchback). Das Finale nutzt drei andere Strecken: **Haarnadelkurs (Hairpin Run)**, **Diamantrunde (Diamond Loop)** und **Technikrunde (Technical Loop)**. Alle Rennen bleiben kollisionsfrei; Pods beeinflussen die Bewegung anderer Pods nicht.
-
-**Qualifikationszeiten zählen nicht zur Finalsumme.** Nur wer alle drei Finalstrecken ohne Disqualifikation gültig beendet, erhält eine Gesamtzeit und kann Gesamtsieger werden. Andernfalls steht dort **DNF** (nicht beendet) beziehungsweise **DQ** (disqualifiziert), keine gewinnfähige Strafzeit. Wenn kein Bot alle drei gültig beendet, gibt es **keinen Gesamtsieger**. Bei exakt gleicher Summe entscheiden der Alias ohne Beachtung der Großschreibung und danach die UUID.
-
-Die Zeiten sind simulierte **Spielzüge**, einschließlich Bruchteilen beim Zieleinlauf, keine Sekunden oder Laufzeiten des Rechners. Drei angezeigte Nachkommastellen ändern weder Rangfolge noch Vergleichsgenauigkeit des Servers. Die Lehrkraft kann die Gesamtwertung jederzeit sehen. Lernende und Beamer sehen sie samt Gesamtsieger erst am Wiedergabeende des dritten Replays der **aktuellen** Finalserie, wenn Auftrag und Sitzung abgeschlossen sind. Das erste/zweite Rennen, Qualifikationsrennen, fehlgeschlagene Aufträge oder alte Final-Replays verraten die aktuelle Gesamtwertung nicht. Das ist ein Wiedergabeschutz, keine Geheimhaltung der API-Daten.
-
-Die Regeln gelten **nicht rückwirkend** für alte Einzelfinals. Deren Siegeranzeige und historische Kontakt-Beschriftungen bleiben erhalten; gespeicherte Quelltexte und Replay-Dateien werden nicht umgeschrieben. Details zum Datenvertrag und zu isolierten Tests: [Drei-Strecken-Finale](docs/three-track-final.md). Es werden damit keine neuen nativen Docker-/Plattformtests behauptet.
-
-## Python-Schnittstelle für die Lernenden
-
-Testläufe, Qualifikation und Finale laufen immer ohne Kollisionen. Pods fahren durcheinander hindurch; sie können andere Pods weder wegschieben noch blockieren oder deren Bewegung verändern. Alle anderen Regeln der Rennphysik und die bisherigen BOOST-/SHIELD-Befehle bleiben kompatibel. Vorhandene Kontakt-Replays behalten ihre ursprünglichen Metadaten und Beschriftungen.
-
-Die Startvorlage gibt es auf der Website. Pro Zug liest ein Programm zwei Zeilen:
+Neue Installationen senden **eine Eingabezeile pro Zug**, ohne Gegnerkoordinaten:
 
 ```text
 x y checkpoint_x checkpoint_y distance relative_angle
-opponent_x opponent_y
 ```
 
-Es gibt genau eine Aktionszeile aus:
+Genau eine Aktionszeile ausgeben und flushen:
 
 ```text
 target_x target_y thrust
 ```
 
-- Die Koordinaten sind ganze Zahlen. Die Strecke ist grundsätzlich 16000 × 9000 Einheiten groß.
-- `thrust` ist eine Zahl von 0 bis 100; größere/kleinere Ganzzahlen werden begrenzt. Einmal pro Rennen ist `BOOST` möglich; weitere BOOST-Befehle wirken wie Schub 100.
-- `SHIELD` bleibt erlaubt und verhindert im Aktivierungszug und den zwei folgenden Zügen den Schub; ohne Kollisionen hat es keine Schutzwirkung. Nach der freien Ausrichtung im ersten Zug kann der Pod höchstens 18 Grad pro Zug drehen.
-- Im Finale bezeichnet die Gegnerzeile den **nächstgelegenen anderen Pod**, nicht immer denselben Gegner.
-- Beide Eingabezeilen in jedem Durchlauf lesen. Variablen außerhalb der Schleife behalten ihren Wert über mehrere Züge.
-- Aktionen mit `print(..., flush=True)` ausgeben; Debug-Ausgaben gehören nach `sys.stderr`.
-- Die Sandbox enthält nur die Python-Standardbibliothek, keine Zusatzpakete. Einreichungen erhalten weder Netzwerkzugriff noch Host-Dateien.
+Startcode und Regeln der **aktiven Installation** verwenden. Eine bestehende `legacy`-Installation sendet eine zweite Gegnerzeile; ein Protokollwechsel macht Programme inkompatibel, die sie weiterhin lesen. Die checkpoint-only-Nadja darf **keine Gegnerzeile** einlesen.
 
-Die Regeln auf der Website sind für das tatsächlich implementierte Spiel maßgeblich. Zwei Runden, maximal 700 Züge, begrenzte Antwortzeit und begrenzte Ausgabe verhindern endlose Rennen. Einsteiger können zunächst Checkpoints ansteuern und danach Kurvenverhalten, Bremsen und den BOOST-Zeitpunkt verbessern.
+- Nur Python-Standardbibliothek. Dauerhafte Variablen außerhalb der Schleife halten. `print(..., flush=True)` verwenden; Debug-Ausgaben nach `sys.stderr`.
+- Schub 0–100; größere/kleinere Ganzzahlen werden begrenzt. `BOOST` wirkt einmal je Rennen, danach wie Schub 100. `SHIELD` verhindert im Aktivierungszug und den folgenden zwei Zügen Schub; ohne Kollisionen hat es keine Schutzwirkung.
+- **Testrennen, Qualifikation und Finale sind kollisionsfrei.** Pods können sich weder schieben noch blockieren.
+- Alle Bots fahren dieselben drei Qualifikationsstrecken: Breiter Rundkurs (Wide Circuit), Fünf Kurven (Five Corners), Zickzackstrecke (Switchback). Disqualifizierte Bots kommen nicht ins Finale.
+- Das Finale nutzt **Haarnadelkurs (Hairpin Run), Diamantrunde (Diamond Loop) und Technikrunde (Technical Loop)**. Die kleinste Summe der **drei ungerundeten Final-Zieleinlaufzeiten** gewinnt; Qualifikationszeiten zählen nicht. Es sind anteilige **simulierte Spielzüge, keine echten Sekunden**. Anzeigerundung ändert keine Platzierung.
+- Nur wer alle drei Finalstrecken ohne Disqualifikation beendet, kann Gesamtsieger werden. Sonst DNF/DQ; ohne gültige Gesamtsumme gibt es keinen Champion. Bei exakt gleicher Summe entscheiden Alias ohne Groß-/Kleinschreibung, danach UUID.
+- Die Lehrkraft kann die Gesamtwertung sofort sehen. Lernenden-/Beameransichten zeigen sie nach Ende des dritten aktuellen Finalreplays, wenn Serie und Auftrag abgeschlossen sind. Das ist Präsentationssteuerung, keine API-Geheimhaltung.
 
-## Stoppen, aktualisieren und Daten behalten
+Details: [Drei-Strecken-Wertung](docs/three-track-final.md) · [Abgabefrist](docs/configurable-submission-time.md).
 
-```text
+## Zuerst lokal; privates LAN nur bewusst freigeben
+
+Standard ist **`127.0.0.1:8765`**, nur auf dem Gastgeber erreichbar. Diese Anleitung öffnet keine Firewall, legt keinen Tunnel an und ändert keine laufende Installation automatisch.
+
+Für ein vertrauenswürdiges Unterrichts-LAN mit der Schul-IT abstimmen, dann in der `.env` **dieser Installation** ausdrücklich `POD_BIND=0.0.0.0` setzen und mit `docker compose up -d` neu erstellen. Die private LAN-IP des Hosts teilen, keine Docker-/VPN-Adresse. Firewall auf das private lokale Subnetz beschränken und mit zweitem Gerät testen; Gäste-WLAN kann Verbindungen sperren. Docker unter Linux kann manche Host-Firewall-Regeln umgehen: tatsächliche Erreichbarkeit prüfen. Zur Rückkehr `POD_BIND=127.0.0.1` setzen und neu erstellen. Bei belegtem Port `POD_PORT` ändern und URLs entsprechend anpassen.
+
+Optionale Klasseneinladungen erlauben **100 Teilnahmesitzungen**, einschließlich Beamer-Browsern. Zeitlich begrenzte gemeinsame Codes und Cookies sind keine persönliche Identität oder missbrauchssichere Zulassung. Standardmäßige Secure-Cookies benötigen HTTPS. Einladungen und Ratenlimits machen **anonyme öffentliche Codeausführung nicht sicher**. Siehe [Sicherheit](SECURITY.md).
+
+## Stoppen, neu starten und aktualisieren — Daten behalten
+
+Im selben Installationsordner mit **demselben Compose-Projektnamen und derselben Konfiguration**:
+
+```sh
 docker compose stop
 docker compose start
-docker compose logs classroom
+docker compose ps
 ```
 
-`docker compose down` entfernt Container und Netzwerk dieses Projekts, **nicht** die gespeicherten Daten. Anschließend mit `docker compose up -d` starten. Nach einer Quellcodeaktualisierung `docker compose up --build -d` ausführen. Dazu vorher laufende Turniere beenden.
+Sitzungen, Quellcode, eingefrorene Abgaben, Replays und Lehrkraft-Schlüssel liegen im projektbezogenen Volume `classroom-data`, im Container unter `/data`. `docker compose down` behält das Volume; danach mit `docker compose up -d` starten. **`down --volumes`, Volume-Prune und Reset niemals als Update-/Reparaturschritt einsetzen.** Andere Ordner-/Projektnamen können ein neues Volume auswählen und vorhandene Daten scheinbar verschwinden lassen.
 
-Die Daten liegen im projektbezogenen benannten Volume `classroom-data`, im Container unter `/data`: Einreichungen, gespeicherte Quellcodeversionen, Sitzung, Replays und Lehrkraft-Schlüssel. Für Updates denselben Ordner/Compose-Projektnamen behalten. Ein anderer Ordnername oder ein anderes `-p` kann ein anderes Volume auswählen; bei ausdrücklich gewähltem Projektnamen immer `docker compose -p IHR-NAME ...` verwenden.
+Vor Updates laufende Aufträge beenden, Anwendung stoppen und das vollständige Datenvolume privat sichern. Vorhandene `.env`, Projektname, Volume und Schlüssel bleiben erhalten. Für fertige Releases Hinweise prüfen und den versionierten Pull-/Start-Ablauf verwenden; für Quellcodeupdates nach Prüfung `docker compose up --build -d`. Eine bestehende Klasse nicht als Neuinstallation behandeln oder heimlich ihr Protokoll ändern. Unterbrochene Aufträge werden als fehlgeschlagen markiert, nicht fortgesetzt. Ein kopierter Quellcode-/ZIP-Ordner ist **kein Datenbackup**. Backups enthalten Schülercode und private Zugangsdaten.
 
-**`docker compose down --volumes` löscht die Unterrichtsdaten samt Lehrkraft-Schlüssel. Dies nicht versehentlich ausführen!** Die Starthelfer löschen keine Volumes. Die Reset-Funktion der Lehrkraft-Seite löscht den Wettbewerb, behält aber den Schlüssel. Nur den Quellcode auf einen anderen Rechner zu kopieren erstellt eine neue leere Installation; es überträgt keinen laufenden Wettbewerb. Für ein Backup die Anwendung stoppen und das gesamte `/data`-Volume mit einem vertrauenswürdigen Volume-Backup-Werkzeug sichern. Für eine Übernahme auf einem anderen Rechner das vollständige Volume wiederherstellen. Backups enthalten private Schlüssel und Schülercode: vertraulich behandeln.
+## Sicherheitsgrenze
 
-## Sicherheit und Docker-Socket
+Nicht vertrauenswürdige Bots laufen **ausschließlich in eingeschränkten Docker-Containern**: ohne Netzwerk, Docker-Socket und Host-Mounts, als Nicht-root, mit schreibgeschütztem Dateisystem, verworfenen Capabilities sowie Ressourcen-/Ausgabelimits. Ohne Docker/Sandbox wird nicht ausgeführt; kein Host-Fallback.
 
-Vorbereiteter HTTP-Basisschutz und der Ablauf für einen **zunächst ausschließlich für Lehrkräfte geschützten Tunnel-Test** sind in [SECURITY_PREPARATION.md](SECURITY_PREPARATION.md) dokumentiert. Diese Vorbereitung ist keine Freigabe für ungeschützten öffentlichen Schülerbetrieb; die unten beschriebenen Docker-Risiken bleiben bestehen.
+**Die vertrauenswürdige App erhält den Docker-Socket: Das entspricht Host-Administratorrechten.** Ein read-only-Socket ist keine Grenze. Docker schützt nicht garantiert vor Kernel-/Runtime-Lücken. Dies ist ein lokales/vertrauenswürdiges LAN-Unterrichtswerkzeug, **kein fertiger anonymer Internetdienst**. Öffentlicher Betrieb braucht eine unabhängige Prüfung von Isolation, Zugang, HTTPS, Origin und Missbrauchsschutz. Docker aktuell halten; wirklich feindlichen Code nur auf einer isolierten entbehrlichen VM betreiben. [SECURITY.md](SECURITY.md) vor Bereitstellung lesen.
 
-Hochgeladener Code läuft ausschließlich in eingeschränkten, getrennten Docker-Containern: ohne Netzwerk, ohne Host-Mounts, als nicht privilegierter Benutzer, mit schreibgeschütztem Dateisystem, verworfenen Linux-Capabilities und Ressourcen-/Ausgabelimits. Fehlt Docker oder das Sandbox-Image, wird die Ausführung verweigert; es gibt keinen unsicheren Fallback auf den Host.
+Rootless Linux braucht den tatsächlichen Socket in `POD_DOCKER_SOCKET` und einen Compose-Client am selben Daemon. Remote-Kontexte sind nicht der Standardfall; Ressourcenlimits hängen von cgroups ab. Socket-Pfade nicht raten, Windows-`npipe://` nicht in Linux-Container übernehmen.
 
-**Die Anwendung selbst erhält `/var/run/docker.sock`. Dieser Zugriff ist einer Host-Administratorberechtigung gleichzusetzen.** Die Anwendung ist vertrauenswürdige Verwaltungssoftware und läuft für gängige Socket-Berechtigungen als root. **Schüler-Bots erhalten niemals diesen Socket oder andere Host-Mounts.** Auch ein schreibgeschützt eingebundener Socket ist keine Sicherheitsgrenze. Keinen ungesicherten TCP-Docker-Daemon verwenden und die Website nicht öffentlich zugänglich machen. Docker ist eine praktische Isolation, keine Garantie gegen jede Kernel-/Runtime-Sicherheitslücke. Docker aktuell halten; für feindliche öffentliche Einreichungen eine isolierte, entbehrliche VM verwenden.
+## Leistung und Plattformnachweise
 
-### Rootless Docker unter Linux
+Ein berichteter vollständiger Lasttest auf einem **Windows-Desktop mit 16 logischen CPUs** verwendete 100 identische Nadja-Quellen und **100 logische HTTP-Clients**, nicht 100 gerenderte Browser:
 
-In `.env` den tatsächlichen Socket-Pfad setzen, beispielsweise:
+| Messung | Beobachtung |
+|---|---|
+| 100 Abgaben | 0,645 s insgesamt; p95 571 ms |
+| 300 Qualifikationsrennen | 858,436 s |
+| Drei Finalrennen | 36,192 s |
+| Archive | 303; kein DQ/DNF |
+| Poll-Abfragen | 99.873; alle HTTP 200, keine Timeouts |
+| Finale: Status-Antwortzeit | p95 3,327 s; Maximum 4,481 s |
 
-```dotenv
-POD_DOCKER_SOCKET=/run/user/1000/docker.sock
-```
+Trotzdem wurden im Finale **511 Status- / 1.405 Replay-Ticks** und in der Qualifikation **2.100 Replay-Ticks** verpasst. Erfolgreiche HTTP-Antworten belegen **keine flüssige Wiedergabe in 100 Browsern**, feste Unterrichtsdauer oder öffentliche Hosting-Kapazität. Andere Bots/Hardware ändern Laufzeiten. Ältere Einzelfinal-Messungen in historischen Notizen beschreiben nicht den aktuellen Drei-Strecken-Ablauf.
 
-1000 durch die eigene Benutzer-ID beziehungsweise den tatsächlichen Pfad ersetzen. Der Compose-Client auf dem Host muss denselben Daemon ansprechen: passenden Docker-Kontext wählen oder `DOCKER_HOST=unix:///run/user/1000/docker.sock` setzen. Im Anwendungscontainer verweist `DOCKER_HOST` ausdrücklich auf den eingebundenen Linux-Socket `/var/run/docker.sock`; Windows-Einstellungen mit `npipe://` werden nicht übernommen. Ein fehlender Socket wird nicht als Verzeichnis angelegt. Remote-Docker-Kontexte sind nicht der Standardfall; Build, Bot-Image und eingebundener Socket müssen zum selben Linux-Daemon gehören. Bei rootless Docker hängt die Durchsetzung der Ressourcenlimits von der cgroup-Unterstützung ab: auf dem Zielrechner vorab prüfen.
+| Plattform | Nachweis / Empfehlung |
+|---|---|
+| Windows + Docker Desktop, Linux-x86-64-Container | Echte Docker-Unterrichtsabläufe geprüft; obiger Lasttest auf Windows-Desktop. |
+| macOS + Docker Desktop | Vorgesehener Weg; keine frische Hardwareinstallation dieses Releases geprüft. Vor Unterricht den vollständigen Demoablauf auf dem Ziel-Mac testen. |
+| Natives Linux / ARM64 | Build-Unterstützung ist keine Hardwareabnahme. Tatsächlich veröffentlichte CI-/Image-Ergebnisse prüfen und Zielgerät manuell testen; Multiarch-Manifeste belegen keine native Ausführung. |
 
-Die per Digest festgelegten Basisimages für Python, uv und Docker CLI enthalten Linux-AMD64-/ARM64-Varianten. Es wird keine Architektur erzwungen. **Tatsächlich geprüft:** Linux-AMD64-Anwendungscontainer unter Docker Desktop auf Windows, echte Qualifikation mit sechs Bots, Finale mit fünf Bots sowie Daten-/Schlüsselerhalt nach Neustart und Container-Neuerstellung. macOS, natives Linux und ARM64-Hardware wurden hier nicht getestet. Vor dem Unterricht auf dem Zielrechner den Demo-Wettbewerb durchführen.
+## Hilfe und Mitmachen
 
-## Probleme beheben
+- **Docker nicht bereit/unhealthy:** Docker starten, Linux-Container wählen, lokal `docker compose ps` und `docker compose logs classroom` prüfen; Kontext und Socket müssen zusammenpassen.
+- **Port belegt:** anderen `POD_PORT` wählen, keinen fremden Dienst stoppen.
+- **Daten scheinbar leer:** ursprünglichen Ordner, `.env` und Projektnamen prüfen. Nicht zurücksetzen oder neue Daten darüberlegen.
+- **Schlüssel verloren:** lokale Logs lesen, nicht ungeschwärzt teilen oder das Volume löschen.
 
-- **Docker nicht bereit / unhealthy:** Docker starten, Linux-Container wählen, `docker compose logs classroom` und `docker compose ps` prüfen. Stimmen Docker-Kontext und Socket überein?
-- **Port belegt:** `POD_PORT` in `.env` ändern und `docker compose up -d` erneut ausführen.
-- **Schüler-Link nicht erreichbar:** `POD_BIND=0.0.0.0`, richtige private LAN-IP und Port prüfen; Firewall und WLAN-Geräteisolation mit der IT klären.
-- **Privates Repository nicht zugänglich:** Git mit einem berechtigten Konto anmelden oder ein Quellcodearchiv vom Eigentümer erhalten. Keine Zugangstokens in geteilte Befehle oder Dokumente schreiben.
-- **Lehrkraft-Schlüssel vergessen:** `docker compose logs classroom`. Auch beim Neustart wird derselbe gespeicherte Schlüssel erneut ausgegeben. Das Volume dafür nicht löschen.
-
-## Alternative und Entwicklung
-
-Bisherige native Plattformnachweise beziehen sich auf die damals getestete Version, nicht automatisch auf das Drei-Strecken-Format. Die isolierten UI-/Locale-Tests in [docs/three-track-final.md](docs/three-track-final.md) belegen keine neue native Docker-Ausführung und sind keine Bereitstellungsfreigabe.
-
-Die bisherigen Windows-Dateien `Setup.cmd` und `Start-classroom.cmd` bleiben für die native Python-/uv-Installation verfügbar; siehe [README.md](README.md). Sie sind für den Docker-Compose-Weg nicht erforderlich.
-
-Optionaler Entwicklertest mit Python/uv:
-
-```text
-uv run python scripts/deployment_test.py
-```
-
-Er baut ein zufällig benanntes Compose-Testprojekt, verwendet ein Wegwerf-Volume und einen freien localhost-Port, fährt eine echte Qualifikation und ein Finale, prüft den Erhalt von Schlüssel/Ergebnissen/Replays nach Neustart und Neuerstellung und entfernt nur seine eigenen Testcontainer und sein Volume. Das gemeinsame Bot-Image bleibt erhalten. Ergebnisdatei: `artifacts/deployment-result.json`.
-
-Originalquellcode: MIT-Lizenz; Abhängigkeiten behalten ihre eigenen Lizenzen. Architektur: FastAPI, SQLite, deterministische Python-Engine, Docker-Bots und HTML/JavaScript-Canvas, ohne Frontend-Build oder CDN.
+Für automatisierte Einrichtung: [sicherer KI-Prompt](docs/agent-setup.md). Reproduzierbare, nicht sicherheitskritische Probleme unter [GitHub Issues](https://github.com/igathedub/pod-racing-classroom/issues) melden; Schwachstellen gemäß [SECURITY.md](SECURITY.md). [Beiträge](CONTRIBUTING.md) sind willkommen. Originalcode: [MIT](LICENSE); Abhängigkeiten behalten ihre eigenen Lizenzen.
