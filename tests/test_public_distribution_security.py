@@ -45,7 +45,7 @@ def test_digest_release_compose_config(tmp_path):
     assert data['volumes']['classroom-data']['name'] == 'pod-public-config-test_classroom-data'
 
 
-@pytest.mark.skipif(os.name == 'nt', reason='POSIX launcher exercised on Linux/macOS CI')
+@pytest.mark.skipif(not shutil.which('sh'), reason='POSIX shell required')
 def test_posix_launcher_persists_identity_and_rejects_injection(tmp_path):
     shutil.copytree(ROOT/'distribution', tmp_path/'bundle')
     bindir = tmp_path/'bin'
@@ -57,6 +57,7 @@ case "$*" in
 'context show') echo desktop-linux;;
 'context inspect desktop-linux --format {{.Endpoints.docker.Host}}') echo unix:///run/user/1000/docker.sock;;
 *'info --format {{.OSType}}') echo linux;;
+*'info --format {{.OperatingSystem}}') echo Debian;;
 esac
 ''')
     shim.chmod(0o755)
@@ -83,7 +84,8 @@ def test_windows_launcher_preserves_project_and_refuses_shell_text(tmp_path):
 >>"%CALLS%" echo %*
 if "%~1"=="context" if "%~2"=="show" echo desktop-linux
 if "%~1"=="context" if "%~2"=="inspect" echo npipe:////./pipe/dockerDesktopLinuxEngine
-if "%~3"=="info" echo linux
+if "%~3"=="info" if "%~5"=="{{.OSType}}" echo linux
+if "%~3"=="info" if "%~5"=="{{.OperatingSystem}}" echo Docker Desktop
 exit /b 0
 ''')
     calls = tmp_path/'calls'

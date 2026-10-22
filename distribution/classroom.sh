@@ -7,13 +7,28 @@ case ${1:-start} in start|stop) action=${1:-start};; *) echo 'Use start or stop'
 unset DOCKER_HOST DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH
 context=$(docker context show)
 endpoint=$(docker context inspect "$context" --format '{{.Endpoints.docker.Host}}')
+invalid_endpoint() { echo 'Only canonical local Unix sockets or local Docker Desktop pipes are supported.' >&2; exit 1; }
 case "$endpoint" in
-  unix:///*) POD_RELEASE_SOCKET=${endpoint#unix://};;
-  npipe://*) POD_RELEASE_SOCKET=/var/run/docker.sock;;
-  *) echo 'Only local Unix sockets or Docker Desktop are supported; select a local context.' >&2; exit 1;;
+  unix:///*)
+    POD_RELEASE_SOCKET=${endpoint#unix://}
+    case "$POD_RELEASE_SOCKET" in *[!a-zA-Z0-9_./-]*|*//*|*/../*|*/./*|*/..|*/.|*/) invalid_endpoint;; esac;;
+  npipe:////./pipe/*)
+    pipe=${endpoint#npipe:////./pipe/}
+    case "$pipe" in ''|*[!a-zA-Z0-9_-]*) invalid_endpoint;; esac
+    POD_RELEASE_SOCKET=/var/run/docker.sock;;
+  *) invalid_endpoint;;
+esac
+[ "$(docker --context "$context" info --format '{{.OSType}}')" = linux ] || { echo 'Start Docker with Linux containers.' >&2; exit 1; }
+server_os=$(docker --context "$context" info --format '{{.OperatingSystem}}')
+case "$server_os" in
+  'Docker Desktop')
+    # Bind sources belong to the daemon VM, not the Desktop client socket:
+    # https://docs.docker.com/engine/storage/bind-mounts/#considerations-and-constraints
+    POD_RELEASE_SOCKET=/var/run/docker.sock;;
+  ''|'<no value>') echo 'Cannot identify the Docker server operating system.' >&2; exit 1;;
+  *) case "$endpoint" in npipe:*) echo 'Named pipes require Docker Desktop.' >&2; exit 1;; esac;;
 esac
 export POD_RELEASE_SOCKET
-[ "$(docker --context "$context" info --format '{{.OSType}}')" = linux ] || { echo 'Start Docker with Linux containers.' >&2; exit 1; }
 docker --context "$context" compose version >/dev/null
 if [ ! -e .classroom-project ]; then
   [ "$action" = start ] || { echo 'No saved classroom project.' >&2; exit 1; }

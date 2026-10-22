@@ -16,7 +16,7 @@ RUNTIME = ('Start.cmd', 'Stop.cmd', 'Start.command', 'Stop.command', 'Start.sh',
 def private_path(path):
     parts = [part.lower() for part in Path(path).parts]
     return any(p in {'data', 'artifacts', '.venv', '.git', '__pycache__', 'node_modules',
-                     '.pytest_cache', '.ruff_cache'} or p.startswith('.env') or
+                     '.pytest_cache', '.ruff_cache', 'teacher-private.log', '.classroom-project'} or p.startswith('.env') or
                any(word in p for word in ('secret', 'credential', 'replay', 'handoff', 'localreport', 'local-report', 'local_report'))
                for p in parts) or Path(path).suffix.lower() in {'.db', '.sqlite', '.sqlite3', '.db-wal', '.db-shm', '.sqlite3-wal', '.sqlite3-shm', '.pyc', '.pem', '.key'}
 

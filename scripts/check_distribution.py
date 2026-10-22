@@ -19,7 +19,7 @@ def private_path(path):
                for p in parts) or Path(path).suffix.lower() in {'.sqlite3', '.sqlite', '.db', '.db-wal', '.db-shm', '.sqlite3-wal', '.sqlite3-shm', '.pyc', '.key', '.pem'}
 
 ROOT = Path(__file__).resolve().parents[1]
-FORBIDDEN = {"data", "artifacts", ".venv", "__pycache__", "node_modules", ".pytest_cache", ".ruff_cache"}
+FORBIDDEN = {"data", "artifacts", ".venv", "__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "teacher-private.log", ".classroom-project"}
 
 
 def main() -> None:

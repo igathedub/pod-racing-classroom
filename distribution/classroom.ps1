@@ -10,10 +10,17 @@ function Docker-Checked([string[]]$Arguments) {
 try {
     $context = (Docker-Checked @('context','show') | Out-String).Trim()
     $endpoint = (Docker-Checked @('context','inspect',$context,'--format','{{.Endpoints.docker.Host}}') | Out-String).Trim()
-    if ($endpoint.StartsWith('npipe://')) { $env:POD_RELEASE_SOCKET = '/var/run/docker.sock' }
-    elseif ($endpoint.StartsWith('unix:///')) { $env:POD_RELEASE_SOCKET = $endpoint.Substring(7) }
+    if ($endpoint -cmatch '\Anpipe:////\./pipe/[a-zA-Z0-9_-]+\z') { $env:POD_RELEASE_SOCKET = '/var/run/docker.sock' }
+    elseif ($endpoint -cmatch '\Aunix://(/[a-zA-Z0-9_.-]+)+\z' -and $endpoint -cnotmatch '/\.\.?(/|\z)') { $env:POD_RELEASE_SOCKET = $endpoint.Substring(7) }
     else { throw 'Only local Docker Desktop/Unix contexts are supported. Select a local context.' }
     if ((Docker-Checked @('--context',$context,'info','--format','{{.OSType}}') | Out-String).Trim() -ne 'linux') { throw 'Select Linux containers in Docker Desktop.' }
+    $serverOS = (Docker-Checked @('--context',$context,'info','--format','{{.OperatingSystem}}') | Out-String).Trim()
+    if ($serverOS -ceq 'Docker Desktop') {
+        # Bind sources belong to the daemon VM, not the Desktop client socket:
+        # https://docs.docker.com/engine/storage/bind-mounts/#considerations-and-constraints
+        $env:POD_RELEASE_SOCKET = '/var/run/docker.sock'
+    } elseif ($serverOS -eq '' -or $serverOS -eq '<no value>') { throw 'Cannot identify the Docker server operating system.' }
+    elseif ($endpoint.StartsWith('npipe:')) { throw 'Named pipes require Docker Desktop.' }
     Docker-Checked @('--context',$context,'compose','version') | Out-Null
     $state = Join-Path $PSScriptRoot '.classroom-project'
     if (-not (Test-Path -LiteralPath $state)) {
