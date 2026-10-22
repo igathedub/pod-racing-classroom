@@ -36,7 +36,9 @@ body[data-view=student] #student-panel #code{flex:1;min-height:58vh;height:620px
 
 /* Role-first hierarchy and progressive disclosure, without changing race behavior. */
 main{padding-bottom:24px}
-.site-footer,.panel-heading .eyebrow,.stage-line{display:none}
+.panel-heading .eyebrow,.stage-line{display:none}
+.site-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;margin-top:24px;padding:16px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+.site-footer a{padding:8px 0;white-space:normal}
 body[data-view=teacher] .monitor{grid-template-columns:minmax(340px,420px) minmax(0,1fr);grid-template-areas:"role race" "role rank"}
 .teacher-actions{gap:10px}.teacher-actions h3{margin:0;font-size:14px;color:var(--muted)}
 .teacher-actions h3:not(:first-child){margin-top:12px}

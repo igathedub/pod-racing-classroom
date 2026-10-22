@@ -2,6 +2,8 @@
 (() => {
   'use strict';
   const de = {
+  "Made for Codeweek 2026 in Wiesbaden.": "Entwickelt für die Codeweek 2026 in Wiesbaden.",
+  "Source code on GitHub": "Quellcode auf GitHub",
   "Run three-track final · {count} pilot": "Drei-Strecken-Finale starten · {count} Bot",
   "Run three-track final · {count} pilots": "Drei-Strecken-Finale starten · {count} Bots",
   "Three-track final": "Drei-Strecken-Finale",
