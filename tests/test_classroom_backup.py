@@ -219,6 +219,34 @@ def test_restore_creates_only_new_volume_and_isolated_owned_stopped_helper(tmp_p
         assert db.execute("SELECT id,title FROM replays").fetchone() == ("replay", "Synthetic title")
 
 
+def test_restore_establishes_owner_of_new_audit_directory(tmp_path, monkeypatch):
+    import subprocess
+    mod, fake, docker, root = make_backup(tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, 'WINDOWS', True)
+    user = 'S-1-5-21-100'
+    owned = set()
+    audit_roots = set()
+
+    def native_acl(command, **kwargs):
+        path = Path(kwargs['env']['CLASSROOM_PRIVATE_ACL_PATH'])
+        if 'SetOwner(' in command[-1]:
+            owned.add(path)
+            return subprocess.CompletedProcess(command, 0, '', '')
+        owner = user
+        if path.name.startswith('classroom-verify-'):
+            audit_roots.add(path)
+            if path not in owned:
+                owner = mod._WIN_ADMINS
+        return subprocess.CompletedProcess(command, 0, json.dumps(
+            {'owner': owner, 'user': user, 'allow': ['S-1-3-4']}), '')
+
+    monkeypatch.setattr(mod.subprocess, 'run', native_acl)
+    result = mod.restore(docker, root, 'new_private_data', 'trusted-app:local')
+    assert result['counts']['submissions'] == 1
+    assert audit_roots and audit_roots <= owned
+    assert HELPER_ID not in fake.containers
+
+
 def test_inspect_output_strips_sha256_images(tmp_path, monkeypatch):
     mod = module()
     fake = DockerBoundary(sample_data(tmp_path / "data"))

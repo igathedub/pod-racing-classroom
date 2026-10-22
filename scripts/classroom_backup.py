@@ -212,16 +212,38 @@ def _windows_require_private_acl(path):
         )
 
 
+def _windows_set_current_owner(path):
+    """Correct elevated-token default ownership without changing the DACL."""
+    env = dict(os.environ, CLASSROOM_PRIVATE_ACL_PATH=str(path))
+    script = (
+        "$ErrorActionPreference = 'Stop'; "
+        "$acl = Get-Acl -LiteralPath $env:CLASSROOM_PRIVATE_ACL_PATH; "
+        "$acl.SetOwner([System.Security.Principal.WindowsIdentity]::GetCurrent().User); "
+        "Set-Acl -LiteralPath $env:CLASSROOM_PRIVATE_ACL_PATH -AclObject $acl"
+    )
+    try:
+        result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                                capture_output=True, text=True, timeout=10, env=env)
+    except (OSError, subprocess.SubprocessError):
+        raise BackupError("Windows ACL ownership update failed; private diagnostics suppressed") from None
+    if result.returncode:
+        raise BackupError("Windows ACL ownership update failed; private diagnostics suppressed")
+
+
 def privatize(root):
     inventory(root)  # Reject symlinks BEFORE chmod or following any private file.
     for path in [root, *root.rglob("*")]:
-        if not WINDOWS:
+        if WINDOWS:
+            _windows_set_current_owner(path)
+        else:
             path.chmod(0o700 if path.is_dir() else 0o600)
         require_private(path)
 
 
 def private_mkdir(path):
     path.mkdir(mode=0o700)
+    if WINDOWS:
+        _windows_set_current_owner(path)
     require_private(path)
 
 
@@ -409,7 +431,7 @@ def restore(docker, backup_dir, new_volume, image):
         import tempfile
         with tempfile.TemporaryDirectory(prefix="classroom-verify-", dir=root.parent) as temporary:
             audit = Path(temporary)
-            require_private(audit)
+            privatize(audit)
             private_mkdir(audit / "data")
             docker.call("cp", f"{helper}:/data/.", audit / "data")
             privatize(audit)
