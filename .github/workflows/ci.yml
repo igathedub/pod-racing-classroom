@@ -33,6 +33,7 @@ jobs:
       - run: uv run pytest tests/ -m "not docker" --ignore=tests/test_public_distribution_security.py
       - run: uv run pytest tests/test_public_distribution_security.py -k "not digest_release_compose_config"
       - run: uv run ruff check scripts/package.py scripts/check_distribution.py tests/test_public_distribution*.py
+      - run: uv run python scripts/check_distribution.py
   docker:
     name: Native Linux Docker (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
@@ -65,4 +66,4 @@ jobs:
           POD_CHECKPOINT_ENDPOINT: unix:///var/run/docker.sock
         run: |
           uv run pytest tests/test_public_distribution.py tests/test_public_distribution_security.py
-          uv run pytest tests/test_checkpoint_protocol_docker.py -m docker
+          uv run pytest tests/ -m docker

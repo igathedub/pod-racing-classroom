@@ -66,7 +66,8 @@ def test_role_work_panel_precedes_race_and_hides_empty_standings(ui_page, view):
         return Boolean(role.compareDocumentPosition(document.querySelector('.race-panel')) & Node.DOCUMENT_POSITION_FOLLOWING);
     }"""), "Keyboard/DOM order must match the visual work-first order"
     assert not page.locator(".rank-panel").is_visible(), "Do not show a blank results panel"
-    assert not page.locator(".site-footer").is_visible()
+    assert page.locator(".site-footer").is_visible(), "Keep project attribution and source access visible"
+    assert page.locator('.site-footer a[href="https://github.com/igathedub/pod-racing-classroom"]').is_visible()
     assert not page.locator(".transport").is_visible(), "Playback controls need an actual replay"
     page.set_viewport_size({"width": 390, "height": 844})
     assert page.locator("#student-panel" if view == "/" else "#teacher-panel").bounding_box()["y"] < page.locator(".race-panel").bounding_box()["y"]
