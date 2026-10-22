@@ -1,5 +1,6 @@
 from io import BytesIO
 import json
+import math
 from pathlib import Path
 import queue
 import subprocess
@@ -141,7 +142,7 @@ def test_examples_are_seven_distinct_valid_python_sources():
         assert "flush=True" in source
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def docker_ready():
     state = sandbox_status()
     if not state["available"]:
@@ -268,16 +269,57 @@ def test_docker_examples_actually_finish_races(docker_ready, filename, track):
     json.dumps(replay, allow_nan=False)
 
 
-@pytest.mark.docker
-@pytest.mark.parametrize('track', make_tracks(count=6)[3:], ids=lambda track: track['id'])
-def test_docker_five_real_pods_race_without_contact_and_produce_a_winner(docker_ready, track):
+@pytest.fixture(scope="module")
+def legacy_final_series(docker_ready):
     filenames = ["boost.py", "cornering.py", "momentum.py", "sprinter.py", "cautious.py"]
     entries = [{"id": str(index), "alias": filename,
                 "code": (ROOT / "examples" / filename).read_text(encoding="utf-8")}
                for index, filename in enumerate(filenames)]
-    replay = run_race(entries, track)
-    assert replay["winner_id"] is not None
-    assert len(replay["frames"][-1]["pods"]) == 5
-    assert all(not item["disqualified"] for item in replay["results"])
-    assert all(item["finished"] for item in replay["results"])
-    assert all(isinstance(item['finish_time'], float) and item['finish_time'] > 0 for item in replay['results'])
+    return [run_race(entries, track) for track in make_tracks(count=6)[3:]]
+
+
+@pytest.mark.docker
+@pytest.mark.parametrize('track_index', range(3), ids=['track-2026-4', 'track-2026-5', 'track-2026-6'])
+def test_docker_five_real_pods_race_without_contact_and_produce_a_winner(legacy_final_series, track_index):
+    replay = legacy_final_series[track_index]
+    assert replay["status"] == "finished" and replay["collisions"] is False
+    assert len(replay["entries"]) == len(replay["results"]) == 5
+    assert all(len(frame["pods"]) == 5 for frame in replay["frames"])
+    assert all(not item["disqualified"] and item["error"] is None for item in replay["results"])
+    # The legacy straight-line BOOST policy legitimately misses checkpoints on
+    # these harder tracks. A turn-limit DNF is not a sandbox failure or a DQ.
+    expected_dnf = {"boost.py"} if track_index in (0, 2) else set()
+    assert {item["alias"] for item in replay["results"] if not item["finished"]} == expected_dnf
+    for item in replay["results"]:
+        if item["finished"]:
+            assert type(item["finish_time"]) is float
+            assert math.isfinite(item["finish_time"]) and item["finish_time"] > 0
+            assert item["passed"] == replay["laps"] * len(replay["track"]["checkpoints"])
+        else:
+            assert item["finish_time"] is None
+            assert item["turns"] == replay["max_turns"] == 700
+            assert item["passed"] < replay["laps"] * len(replay["track"]["checkpoints"])
+    eligible = [item for item in replay["results"] if item["finished"] and not item["disqualified"]]
+    assert eligible and replay["winner_id"] == min(eligible, key=lambda item: item["finish_time"])["id"]
+    json.dumps(replay, allow_nan=False)
+
+
+@pytest.mark.docker
+def test_docker_legitimate_dnf_cannot_become_three_track_champion(legacy_final_series):
+    from arena.tournament import rank_final_results
+
+    entries = legacy_final_series[0]["entries"]
+    race_results = {entry["id"]: [next(row for row in replay["results"] if row["id"] == entry["id"])
+                                for replay in legacy_final_series] for entry in entries}
+    board = rank_final_results(entries, race_results)
+    boost = next(row for row in board if row["alias"] == "boost.py")
+    assert boost["disqualified"] is False
+    assert boost["completed_tracks"] == 1
+    assert boost["race_times"][0] is None and boost["race_times"][2] is None
+    assert boost["total_time"] is None
+    eligible = [row for row in board if row["total_time"] is not None]
+    assert len(eligible) == 4
+    champion = eligible[0]
+    assert champion["id"] != boost["id"] and champion["rank"] == 1
+    assert champion["completed_tracks"] == 3 and not champion["disqualified"]
+    assert champion["total_time"] == min(row["total_time"] for row in eligible)

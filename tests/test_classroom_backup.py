@@ -1,5 +1,7 @@
 """Synthetic private data only; Docker operations are always mocked."""
 import importlib
+import os
+from contextlib import closing
 import json
 import sqlite3
 import shutil
@@ -56,7 +58,7 @@ class DockerBoundary:
             self.containers[cmd[-1]]["State"]["Running"] = cmd[0] == "start"
         elif cmd[0] == "cp":
             source, destination = cmd[1:]
-            if ":" in source:
+            if source.split(":", 1)[0] in self.containers:
                 source_root = self.data if source.startswith(APP_ID) else self.restored_data
                 shutil.copytree(source_root, destination, dirs_exist_ok=True)
             else:
@@ -97,9 +99,14 @@ def module():
     return importlib.import_module("scripts.classroom_backup")
 
 
+@pytest.fixture(autouse=True)
+def isolated_backup_lock_namespace(tmp_path, monkeypatch):
+    monkeypatch.setattr(module(), "LOCK_ROOT", tmp_path / "locks")
+
+
 def sample_data(root):
     root.mkdir(parents=True)
-    with sqlite3.connect(root / "classroom.sqlite3") as db:
+    with closing(sqlite3.connect(root / "classroom.sqlite3")) as db, db:
         db.executescript("CREATE TABLE config(key TEXT PRIMARY KEY,value TEXT);"
                          "CREATE TABLE submissions(id TEXT,claim_token TEXT);"
                          "CREATE TABLE replays(id TEXT,title TEXT);")
@@ -176,7 +183,10 @@ def test_cold_backup_preserves_bytes_secrets_and_exact_container_configuration(t
     assert lifecycle[1][-1] == GATE_ID and lifecycle[3][-1] == APP_ID
     assert all("compose" not in call for call in fake.calls)
     for path in [output, *output.rglob("*")]:
-        assert path.stat().st_mode & 0o077 == 0
+        if mod.WINDOWS:
+            mod.require_private(path)
+        else:
+            assert path.stat().st_mode & 0o077 == 0
 
 
 def make_backup(tmp_path, monkeypatch):
@@ -253,6 +263,7 @@ def test_backup_refuses_published_host_ports(tmp_path, monkeypatch):
                    tmp_path / "backup")
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits do not represent native Windows ACLs")
 def test_backup_owns_output_and_refuses_writable_parent(tmp_path, monkeypatch):
     import os as _os
     mod = module()
