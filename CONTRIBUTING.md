@@ -16,7 +16,7 @@ For trusted development tooling, install Python 3.11+ and uv. From your developm
 ```sh
 uv sync --frozen --python 3.11
 uv run ruff check .
-uv run pytest
+uv run python -m pytest
 ```
 
 Some tests require optional Docker/browser setup and opt-in flags; inspect the relevant test/script instructions and report actual results and skips. For browser coverage, the development dependency is Playwright; install its Chromium browser with `uv run playwright install chromium` if needed. Do not claim browser/Docker coverage from mocked tests.

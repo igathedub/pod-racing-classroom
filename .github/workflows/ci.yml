@@ -30,8 +30,8 @@ jobs:
       - run: uv run playwright install --with-deps chromium
       # Windows/macOS hosted runners have no Docker daemon. Docker configuration
       # parsing and all Docker execution are covered by the Linux job below.
-      - run: uv run pytest tests/ -m "not docker" --ignore=tests/test_public_distribution_security.py
-      - run: uv run pytest tests/test_public_distribution_security.py -k "not digest_release_compose_config"
+      - run: uv run python -m pytest tests/ -m "not docker" --ignore=tests/test_public_distribution_security.py
+      - run: uv run python -m pytest tests/test_public_distribution_security.py -k "not digest_release_compose_config"
       - run: uv run ruff check scripts/package.py scripts/check_distribution.py tests/test_public_distribution*.py
       - run: uv run python scripts/check_distribution.py
   docker:
@@ -65,5 +65,5 @@ jobs:
           POD_CHECKPOINT_CONTEXT: default
           POD_CHECKPOINT_ENDPOINT: unix:///var/run/docker.sock
         run: |
-          uv run pytest tests/test_public_distribution.py tests/test_public_distribution_security.py
-          uv run pytest tests/ -m docker
+          uv run python -m pytest tests/test_public_distribution.py tests/test_public_distribution_security.py
+          uv run python -m pytest tests/ -m docker
