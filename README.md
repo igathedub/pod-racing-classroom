@@ -1,6 +1,6 @@
 # Pod Racing Classroom
 
-A local website for a Python coding session, alias-based submissions, fair qualification, and an animated final between the best five programs. No CodinGame account or internet service is required during the event once dependencies and the sandbox image have been installed.
+A local website for a Python coding session, alias-based submissions, fair qualification, and an animated three-track final between up to five programs. No CodinGame account or internet service is required during the event once dependencies and the sandbox image have been installed.
 
 This is an **independent classroom game**, not CodinGame's official referee. It preserves the beginner two-line observation/one-line action interface. The five-pod final is deliberately a classroom variant; it is not Gold-league two-pod play.
 
@@ -81,7 +81,7 @@ The digest-pinned Python, uv and Docker CLI base images include Linux AMD64/ARM6
 4. Open `http://localhost:8765/teacher`, enter the admin token printed in the server window, and click **Open coding session**.
 5. Give students the printed `http://YOUR-LAN-IP:8765/` address. Use your classroom Wi-Fi/Ethernet IP, not Docker or VPN adapters. Students submit an alias and paste/upload a Python file. They can replace their own submission before the deadline using the same browser's saved claim token.
 6. At the end, close submissions (or allow the server deadline to close them), then **Run qualification**. Watch race progress and replays on the teacher/projector pages.
-7. Once qualification finishes, click **Run final**. Open `http://localhost:8765/projector`, choose fullscreen, and project the animated race and finishing order.
+7. Once qualification finishes, click **Run three-track final**. Open `http://localhost:8765/projector`, choose fullscreen, and follow all three races. **Final overall** shows the aggregate final result, separate from qualification and the displayed race's positions.
 
 If fewer than five valid entries exist, the final uses the actual number available, with at least two required. Invalid programs do not qualify.
 
@@ -209,7 +209,11 @@ Practice, qualification and final all run without collisions. Pods pass through 
 
 **Qualification:** each student runs the same three deterministic courses from the same starting position, with collisions disabled and a trusted reference opponent. This measures the student's racing behavior fairly rather than rewarding luck in a particular pairing. Rank completed courses first, then the tournament's recorded time/progress tiebreakers. A disqualified program cannot enter the final. All submitted source versions are frozen when qualification begins.
 
-**Final:** up to five best valid programs race together without collisions. They use the frozen source, not any later edits. The replay records every turn and the referee's finishing order. The website reports when no valid finisher exists instead of silently declaring a crashed program the champion.
+**Final:** up to five best eligible programs use their frozen source on three **other** deterministic tracks: **Hairpin Run**, **Diamond Loop**, and **Technical Loop**. Qualification keeps its original three tracks (Wide Circuit, Five Corners, Switchback). Every race remains collision-free. Add only the three final finish times: **qualification times are excluded**, and the lowest valid total wins. Times are fractional simulated **turns**, not wall-clock seconds or replay animation time. Display rounding to three decimal places does not alter the server's ranking.
+
+A bot must finish **all three** final tracks without disqualification to receive a total or become champion. Otherwise its overall result is DNF (or DQ), not a penalized winning total. If nobody qualifies for a valid total, there is **no champion**. Exact total ties use case-folded alias, then UUID. Winning the third race alone does not mean winning the final.
+
+The teacher can inspect **Final overall** at any time. Student/projector views reveal the aggregate table and champion only at playback end of the third replay of the **current completed series**, after both job and session finish. First/second races, qualification, failed jobs, and old final replays cannot reveal the current overall result. These are presentation safeguards, not API secrecy. Existing single-final competitions and contact archives retain their original behavior, frames and labels; the new scoring is **not retroactive**. See [Three-track final contract](docs/three-track-final.md).
 
 ## Teacher workflow
 
@@ -232,11 +236,13 @@ All uploaded source is executed **only inside restricted Docker containers**. Th
 
 Docker is a practical isolation boundary, not a mathematical guarantee against every kernel/runtime vulnerability. Keep Docker Desktop updated, run this on a trusted private classroom network, avoid sensitive host sharing, and use a disposable machine/VM for hostile public submissions. The HTTP site is not designed for public hosting or transmitting secrets across untrusted networks.
 
-The initial classroom release has a 60-submission cap. Qualification runs sequentially to bound resource use; final participants have separate persistent containers. Preflight a realistic class size on the machine before the event. Race replay playback can be paused, sped up, scrubbed or replayed; it need not match the time the CPU spends evaluating programs. Projector playback hides the champion until the finish and fits the camera to include drifting pods.
+The initial classroom release has a 60-submission cap. Qualification runs sequentially to bound resource use; final participants have separate persistent containers. Preflight a realistic class size on the machine before the event. Race replay playback can be paused, sped up, scrubbed or replayed; it need not match the time the CPU spends evaluating programs. Projector playback hides the overall result until the current third final replay ends and fits the camera to include drifting pods.
 
 Each race is two laps, with a maximum of 700 turns. Bots have 0.5 seconds to answer a normal turn, 2 seconds for their first turn, and 15 seconds for container startup. Output caps apply across the entire race: 1 MiB stdout, 64 KiB stderr, 1 KiB per command line. Resource limits are 64 MiB memory, half a CPU and 32 processes per bot. The teacher secret is printed again on restart; keep the console private.
 
 ## Development and verification
+
+Existing native/platform verification reports refer to their originally tested release, not automatically to the new three-track format. The isolated UI/locale checks described in [docs/three-track-final.md](docs/three-track-final.md) do not establish new native Docker results or deployment approval.
 
 ```text
 uv run pytest -m "not docker"

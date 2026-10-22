@@ -53,6 +53,41 @@ def rank_results(snapshot, race_results, max_turns=700):
     return rows
 
 
+def valid_finish_time(result):
+    """A simulated finish is numeric, finite and positive; no ceiling fallback."""
+    value = result.get("finish_time")
+    if not result.get("finished") or result.get("disqualified") or type(value) not in (int, float):
+        return None
+    try:
+        value = float(value)
+    except OverflowError:
+        return None
+    return value if math.isfinite(value) and value > 0 else None
+
+
+def rank_final_results(snapshot, race_results):
+    """Rank only this series: three complete simulated times, never qualifiers."""
+    rows = []
+    for entry in snapshot:
+        results = race_results.get(entry["id"], [])
+        times = [valid_finish_time(result) for result in results]
+        times += [None] * (3 - len(times))
+        completed = sum(value is not None for value in times)
+        invalid = any(result.get("disqualified", False) for result in results)
+        total = sum(times) if completed == 3 and not invalid else None
+        if total is not None and not math.isfinite(total):
+            total = None
+        errors = [public_error(result.get("error")) for result in results if result.get("error")]
+        rows.append({"id": entry["id"], "alias": entry["alias"], "completed_tracks": completed,
+                     "disqualified": invalid, "race_times": times, "total_time": total,
+                     **({"error": errors[0]} if errors else {})})
+    rows.sort(key=lambda row: (row["total_time"] is None, row["total_time"] or 0,
+                               row["disqualified"], -row["completed_tracks"], row["alias"].casefold(), row["id"]))
+    for rank, row in enumerate(rows, 1):
+        row["rank"] = rank
+    return rows
+
+
 class Tournament:
     def __init__(self, store, *, race_fn=None, tracks_fn=None, sandbox_fn=None, input_protocol=None):
         self.store = store
@@ -177,8 +212,8 @@ class Tournament:
         raw_frames = result.get("frames", [])
         if len(raw_frames) > 701 or any(len(frame.get("pods", [])) > 5 for frame in raw_frames):
             raise CompetitionError(503, "Practice run interrupted. Check the Docker sandbox and try again.")
-        result_fields = ("id", "alias", "place", "finished", "disqualified", "turns", "passed", "distance_to_checkpoint")
-        results = [{**{key: row[key] for key in result_fields if key in row}, "error": public_error(row.get("error"))}
+        result_fields = ("id", "alias", "place", "finished", "disqualified", "turns", "finish_time", "passed", "distance_to_checkpoint")
+        results = [{**{key: row[key] for key in result_fields if key in row}, "finish_time": valid_finish_time(row), "error": public_error(row.get("error"))}
                    for row in result.get("results", [])]
         winner = next((row for row in results if row.get("id") == result.get("winner_id") and row.get("finished") and not row.get("disqualified")), None)
         return {"id": str(uuid.uuid4()), "kind": "practice", "title": f"Practice · {entry['alias']}", "track": track,
@@ -202,9 +237,15 @@ class Tournament:
                 raise CompetitionError(409, "Submit at least one bot before qualifying.")
             if not self.sandbox_status(refresh=True)["available"]:
                 raise CompetitionError(503, "Docker sandbox unavailable; no code was executed and submissions were not frozen.")
-            tracks = self._tracks()
+            tracks = self.store.get("tracks") if existing is not None else None
+            final_tracks = self.store.get("final_tracks") if existing is not None else None
+            if tracks is None or final_tracks is None:
+                collection = self._tracks(count=6)
+                tracks = tracks if tracks is not None else collection[:3]
+                final_tracks = final_tracks if final_tracks is not None else collection[3:6]
             job = {"status": "running", "phase": "qualification", "completed": 0, "total": len(snapshot) * len(tracks), "message": "Running qualification on three common tracks."}
-            self.store.update(snapshot=snapshot, tracks=tracks, session={**session, "status": "qualifying"}, job=job,
+            self.store.update(snapshot=snapshot, tracks=tracks, final_tracks=final_tracks, final_format="three-track-total-time-v1",
+                              final_replay_ids=[], final_leaderboard=[], session={**session, "status": "qualifying"}, job=job,
                               leaderboard=[], finalists=[], champion=None, active_replay_id=None)
             self._launch(self._qualify, snapshot, tracks)
             return job
@@ -223,17 +264,34 @@ class Tournament:
                 raise CompetitionError(409, "The final needs at least two eligible bots.")
             if not self.sandbox_status(refresh=True)["available"]:
                 raise CompetitionError(503, "Docker sandbox unavailable; the final was not started.")
-            job = {"status": "running", "phase": "final", "completed": 0, "total": 1, "message": f"Racing {len(entries)} finalists simultaneously."}
+            tracks = self.store.get("final_tracks")
+            if tracks is None:
+                # Upgrade only on an explicit final start; historical archives and
+                # their qualification courses remain untouched.
+                tracks = self._tracks(count=6)[3:6]
+            qualifiers = self.store.get("tracks", [])
+            try:
+                collection = qualifiers + tracks
+                distinct = (len(qualifiers) == len(tracks) == 3
+                            and len({track["id"] for track in collection}) == 6
+                            and len({tuple(map(tuple, track["checkpoints"])) for track in collection}) == 6)
+            except (TypeError, KeyError):
+                distinct = False
+            if not distinct:
+                raise CompetitionError(409, "The final needs three distinct tracks different from qualification.")
+            job = {"status": "running", "phase": "final", "completed": 0, "total": 3, "message": f"Racing {len(entries)} finalists over three different tracks."}
             finalists = [{"id": e["id"], "alias": e["alias"]} for e in entries]
-            self.store.update(session={**self.session(), "status": "final"}, job=job, finalists=finalists, champion=None, active_replay_id=None)
-            self._launch(self._final, entries, self.store.get("tracks")[0])
+            self.store.update(session={**self.session(), "status": "final"}, job=job, finalists=finalists,
+                              final_tracks=tracks, final_format="three-track-total-time-v1",
+                              final_replay_ids=[], final_leaderboard=[], champion=None, active_replay_id=None)
+            self._launch(self._final, entries, tracks)
             return job
 
-    def _tracks(self):
+    def _tracks(self, count=3):
         if self.tracks_fn:
-            return self.tracks_fn(seed=2026, count=3)
+            return self.tracks_fn(seed=2026, count=count)
         from .engine import make_tracks
-        return make_tracks(seed=2026, count=3)
+        return make_tracks(seed=2026, count=count)
 
     def _launch(self, target, *args):
         self.worker = threading.Thread(target=self._guard, args=(target, args), daemon=True, name="classroom-tournament")
@@ -264,14 +322,27 @@ class Tournament:
         fields = ("id", "alias", "x", "y", "angle", "vx", "vy", "next_checkpoint", "passed", "finished", "disqualified", "boost_available")
         return {"turn": frame["turn"], "pods": [{**{k: pod[k] for k in fields if k in pod}, "error": public_error(pod.get("error"))} for pod in frame["pods"]]}
 
-    def _race(self, entries, track, kind, title):
+    def _race(self, entries, track, kind, title, *, series_index=None):
         replay_id = str(uuid.uuid4())
         replay = {"id": replay_id, "track": track, "laps": 2, "max_turns": 700, "collisions": False,
                   "input_protocol": self.input_protocol,
                   "status": "running", "winner_id": None, "entries": [{"id": e["id"], "alias": e["alias"]} for e in entries], "frames": [], "results": []}
+        if series_index is not None:
+            replay.update(series_index=series_index, series_total=3, title=title)
         self.store.add_replay(replay_id, title, kind)
-        self.store.write_replay(replay_id, replay)
-        self.store.update(active_replay_id=replay_id)
+        # Current/live references must only identify an already-readable archive.
+        try:
+            self.store.write_replay(replay_id, replay)
+        except Exception:
+            # Retain an empty failed attempt if storage recovers, but still fail
+            # the job and never publish this attempt as the current/live race.
+            replay["status"] = "failed"
+            self.store.write_replay(replay_id, replay)
+            raise
+        with self.lock:
+            self.store.update(active_replay_id=replay_id,
+                              **({"final_replay_ids": self.store.get("final_replay_ids", []) + [replay_id]}
+                                 if series_index is not None else {}))
         last_write = time.monotonic()
 
         def on_frame(frame):
@@ -293,8 +364,8 @@ class Tournament:
         if len(raw_frames) > 701 or any(len(frame["pods"]) > 5 for frame in raw_frames):
             raise ValueError("Engine exceeded replay bounds")
         replay["frames"] = [self._safe_frame(frame) for frame in raw_frames]
-        result_fields = ("id", "alias", "place", "finished", "disqualified", "turns", "passed", "distance_to_checkpoint")
-        replay["results"] = [{**{k: row[k] for k in result_fields if k in row}, "error": public_error(row.get("error"))} for row in result["results"]]
+        result_fields = ("id", "alias", "place", "finished", "disqualified", "turns", "finish_time", "passed", "distance_to_checkpoint")
+        replay["results"] = [{**{k: row[k] for k in result_fields if k in row}, "finish_time": valid_finish_time(row), "error": public_error(row.get("error"))} for row in result["results"]]
         eligible_winner = next((r for r in replay["results"] if r["id"] == result.get("winner_id") and r.get("finished") and not r.get("disqualified")), None)
         replay.update(status="finished", winner_id=eligible_winner["id"] if eligible_winner else None)
         self.store.write_replay(replay_id, replay)
@@ -320,13 +391,21 @@ class Tournament:
             job = self.store.get("job")
             self.store.update(leaderboard=board, finalists=eligible, job={**job, "status": "finished", "message": "Qualification complete."}, session={**self.session(), "status": "qualified"})
 
-    def _final(self, entries, track):
-        replay = self._race(entries, track, "final", f"Final · {len(entries)} pods")
-        winner = next((row for row in replay["results"] if row["id"] == replay["winner_id"]), None)
+    def _final(self, entries, tracks):
+        results = {entry["id"]: [] for entry in entries}
+        for index, track in enumerate(tracks, 1):
+            replay = self._race(entries, track, "final", f"Final {index}/3 · {track['name']} · {len(entries)} pods", series_index=index)
+            for entry in entries:
+                results[entry["id"]].append(next((row for row in replay["results"] if row["id"] == entry["id"]), {}))
+            board = rank_final_results(entries, results)
+            with self.lock:
+                job = self.store.get("job")
+                self.store.update(final_leaderboard=board, job={**job, "completed": index, "message": f"Final {index} of 3 complete."})
+        winner = next((row for row in board if row["total_time"] is not None), None)
         champion = {"id": winner["id"], "alias": winner["alias"]} if winner else None
         with self.lock:
             job = self.store.get("job")
-            self.store.update(champion=champion, session={**self.session(), "status": "finished"}, job={**job, "status": "finished", "completed": 1, "message": "Final complete." if champion else "Final complete; no bot finished, so no champion was crowned."})
+            self.store.update(champion=champion, session={**self.session(), "status": "finished"}, job={**job, "status": "finished", "completed": 3, "message": "Three-track final complete." if champion else "Three-track final complete; no bot finished all three tracks, so no champion was crowned."})
 
     def reset(self):
         with self.lock:

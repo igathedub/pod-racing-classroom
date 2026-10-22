@@ -50,6 +50,25 @@ def test_tracks_are_seeded_local_and_separated():
         assert all(math.dist(a, b) > 1200 for i, a in enumerate(points) for b in points[i + 1:])
 
 
+def test_six_tracks_preserve_qualifiers_and_add_distinct_course_geometry():
+    tracks = make_tracks(count=6)
+    assert tracks[:3] == make_tracks(count=3)
+    assert [track['checkpoints'] for track in tracks[:3]] == [
+        [[2421, 2213], [13114, 2337], [13624, 6981], [2705, 7302]],
+        [[2328, 4708], [6769, 1465], [13486, 2330], [13202, 7134], [6600, 7375]],
+        [[2145, 1551], [13582, 1606], [9294, 4568], [13300, 7280], [2011, 7267]],
+    ]
+    assert [track['name'] for track in tracks[3:]] == ['Hairpin Run', 'Diamond Loop', 'Technical Loop']
+    assert len({track['name'] for track in tracks}) == 6
+    # Different checkpoint cardinality/order/shape, not the same templates with jitter.
+    assert [len(track['checkpoints']) for track in tracks[3:]] == [6, 4, 7]
+    assert len({tuple(map(tuple, track['checkpoints'])) for track in tracks}) == 6
+    for track in tracks:
+        points = track['checkpoints']
+        assert all(600 <= x <= 15400 and 600 <= y <= 8400 for x, y in points)
+        assert all(math.dist(a, b) > 1200 for i, a in enumerate(points) for b in points[i + 1:])
+
+
 def test_rotation_first_unrestricted_then_eighteen_degrees():
     p = pod()
     apply_command(p, (0, 1000, 0), first=True)
@@ -164,6 +183,22 @@ def test_finish_time_is_fractional_and_counts_two_laps():
     assert p.finished and p.passed == 4 and p.turns == 5
     assert p.finish_time == pytest.approx(4.4)
     assert p.x == 400
+
+
+def test_results_publish_fractional_finish_time_or_none_for_dnf_dq():
+    runners = {
+        '0': ReferenceRunner({'code': 'baseline'}),
+        '1': FakeRunner('0 0 0'),
+        '2': FakeRunner('bad'),
+    }
+    replay = run_race(entries(3), make_tracks()[0], runner_factory=lambda entry: runners[entry['id']])
+    rows = {row['id']: row for row in replay['results']}
+    assert rows['0']['finished']
+    assert isinstance(rows['0']['finish_time'], float)
+    assert 0 < rows['0']['finish_time'] <= rows['0']['turns']
+    assert rows['0']['finish_time'] != rows['0']['turns']
+    assert not rows['1']['finished'] and rows['1']['finish_time'] is None
+    assert rows['2']['disqualified'] and rows['2']['finish_time'] is None
 
 
 def test_beginner_observation_nearest_opponent_and_two_lines():

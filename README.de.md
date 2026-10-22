@@ -63,12 +63,12 @@ Diese Regel wird nicht automatisch gesetzt. Nach dem Workshop wieder entfernen. 
 ## Ablauf für die Lehrkraft
 
 1. Docker und die Website starten. Prüfen, dass die Sandbox bereit ist, und den Schüler-Link auf einem anderen Gerät öffnen.
-2. In einer leeren Sitzung mit **6 Beispiel-Bots hinzufügen** echte Beispielprogramme einfügen. **Qualifikation starten** und danach **Finale starten** zum Probelauf nutzen. Vor dem Unterricht die Demo über die ausdrücklich bestätigte Reset-Funktion löschen.
+2. In einer leeren Sitzung mit **6 Beispiel-Bots hinzufügen** echte Beispielprogramme einfügen. **Qualifikation starten** und danach **Drei-Strecken-Finale starten** zum Probelauf nutzen. Vor dem Unterricht die Demo über die ausdrücklich bestätigte Reset-Funktion löschen.
 3. Unter `/teacher` auf **Programmierphase starten** klicken. Erst dann sind Einreichungen möglich.
 4. Die Lernenden wählen einen Alias und fügen ihren Python-Code ein oder laden eine `.py`-Datei hoch. Änderungen sind bis zum Einsendeschluss möglich. Das Browser-Token schützt den Alias; derselbe Browser sollte weiterverwendet werden. Quellcode zusätzlich selbst speichern.
 5. Am Ende die Einreichung schließen oder den Countdown ablaufen lassen. Mit **Qualifikation starten** die Qualifikation starten. Alle Programme fahren dieselben drei deterministischen Strecken ohne Kollisionen; ihre Quellcodeversionen werden dabei eingefroren. Fehlerhafte Programme sind nicht fürs Finale zugelassen.
-6. Nach abgeschlossener Qualifikation **Finale starten** wählen. Die besten fünf gültigen Programme fahren gemeinsam ohne Kollisionen. Bei weniger gültigen Programmen fahren entsprechend weniger, mindestens zwei.
-7. `/projector` im Vollbild projizieren. Wiedergabe pausieren, beschleunigen oder erneut ansehen. Der Sieger wird in der Projektoransicht erst am Rennende verraten. Wenn niemand gültig ins Ziel kommt, wird nicht einfach ein abgestürzter Bot zum Sieger erklärt.
+6. Nach abgeschlossener Qualifikation **Drei-Strecken-Finale starten** wählen. Bis zu fünf zugelassene Programme fahren mit eingefrorenem Code auf drei **anderen** Strecken ohne Kollisionen. Mindestens zwei Programme sind erforderlich.
+7. `/projector` im Vollbild projizieren. **Rennplatzierungen** zeigt nur das gerade angezeigte Rennen; **Finale gesamt** zeigt die separate Gesamtwertung. Die drei Finalzeiten werden addiert: Die kleinste gültige Summe gewinnt, nicht unbedingt der Sieger des letzten Rennens. Wiedergabe pausieren, beschleunigen oder erneut ansehen.
 
 Den Lehrkraft-Schlüssel und das Loginfeld nicht projizieren. Sitzung, Deadline und Ergebnisse überstehen einen Neustart. Ein unterbrochener Turnierauftrag wird als fehlgeschlagen markiert, nicht automatisch fortgesetzt. Während eines laufenden Turniers nicht aktualisieren oder zurücksetzen.
 
@@ -142,6 +142,16 @@ Die isolierten Tests in `tests/test_class_access*.py` verwenden echte Chromium-
 Browser mit tatsächlicher CSP, aber injizierte Fake-Rennen/-Sandboxfunktionen:
 Sie belegen keine neue Docker-Ausführung oder produktive Bereitstellung.
 
+## Wertung des Drei-Strecken-Finales
+
+Die Qualifikation behält ihre drei bisherigen Strecken: Breiter Rundkurs (Wide Circuit), Fünf Kurven (Five Corners), Zickzackstrecke (Switchback). Das Finale nutzt drei andere Strecken: **Haarnadelkurs (Hairpin Run)**, **Diamantrunde (Diamond Loop)** und **Technikrunde (Technical Loop)**. Alle Rennen bleiben kollisionsfrei; Pods beeinflussen die Bewegung anderer Pods nicht.
+
+**Qualifikationszeiten zählen nicht zur Finalsumme.** Nur wer alle drei Finalstrecken ohne Disqualifikation gültig beendet, erhält eine Gesamtzeit und kann Gesamtsieger werden. Andernfalls steht dort **DNF** (nicht beendet) beziehungsweise **DQ** (disqualifiziert), keine gewinnfähige Strafzeit. Wenn kein Bot alle drei gültig beendet, gibt es **keinen Gesamtsieger**. Bei exakt gleicher Summe entscheiden der Alias ohne Beachtung der Großschreibung und danach die UUID.
+
+Die Zeiten sind simulierte **Spielzüge**, einschließlich Bruchteilen beim Zieleinlauf, keine Sekunden oder Laufzeiten des Rechners. Drei angezeigte Nachkommastellen ändern weder Rangfolge noch Vergleichsgenauigkeit des Servers. Die Lehrkraft kann die Gesamtwertung jederzeit sehen. Lernende und Beamer sehen sie samt Gesamtsieger erst am Wiedergabeende des dritten Replays der **aktuellen** Finalserie, wenn Auftrag und Sitzung abgeschlossen sind. Das erste/zweite Rennen, Qualifikationsrennen, fehlgeschlagene Aufträge oder alte Final-Replays verraten die aktuelle Gesamtwertung nicht. Das ist ein Wiedergabeschutz, keine Geheimhaltung der API-Daten.
+
+Die Regeln gelten **nicht rückwirkend** für alte Einzelfinals. Deren Siegeranzeige und historische Kontakt-Beschriftungen bleiben erhalten; gespeicherte Quelltexte und Replay-Dateien werden nicht umgeschrieben. Details zum Datenvertrag und zu isolierten Tests: [Drei-Strecken-Finale](docs/three-track-final.md). Es werden damit keine neuen nativen Docker-/Plattformtests behauptet.
+
 ## Python-Schnittstelle für die Lernenden
 
 Testläufe, Qualifikation und Finale laufen immer ohne Kollisionen. Pods fahren durcheinander hindurch; sie können andere Pods weder wegschieben noch blockieren oder deren Bewegung verändern. Alle anderen Regeln der Rennphysik und die bisherigen BOOST-/SHIELD-Befehle bleiben kompatibel. Vorhandene Kontakt-Replays behalten ihre ursprünglichen Metadaten und Beschriftungen.
@@ -212,6 +222,8 @@ Die per Digest festgelegten Basisimages für Python, uv und Docker CLI enthalten
 - **Lehrkraft-Schlüssel vergessen:** `docker compose logs classroom`. Auch beim Neustart wird derselbe gespeicherte Schlüssel erneut ausgegeben. Das Volume dafür nicht löschen.
 
 ## Alternative und Entwicklung
+
+Bisherige native Plattformnachweise beziehen sich auf die damals getestete Version, nicht automatisch auf das Drei-Strecken-Format. Die isolierten UI-/Locale-Tests in [docs/three-track-final.md](docs/three-track-final.md) belegen keine neue native Docker-Ausführung und sind keine Bereitstellungsfreigabe.
 
 Die bisherigen Windows-Dateien `Setup.cmd` und `Start-classroom.cmd` bleiben für die native Python-/uv-Installation verfügbar; siehe [README.md](README.md). Sie sind für den Docker-Compose-Weg nicht erforderlich.
 
