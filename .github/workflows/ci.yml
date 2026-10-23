@@ -29,25 +29,54 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install uv
       - run: uv sync --frozen
-      - run: uv run playwright install --with-deps chromium
-      # Chromium's documented SUID-helper fallback preserves browser sandboxing
-      # without disabling Ubuntu's AppArmor/user-namespace restriction globally.
-      # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
-      - name: Select the preinstalled root-owned Chrome sandbox helper
+      - name: Test CI browser policy generator
+        run: uv run python -m unittest discover -s .github/scripts -p "test_*.py" -v
+      - name: Select a fresh Linux CI-only browser cache
         if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
-          helper=/opt/google/chrome/chrome-sandbox
-          test -f "$helper"
-          test -u "$helper"
-          test "$(stat -c '%u:%g:%a' "$helper")" = '0:0:4755'
-          printf 'CHROME_DEVEL_SANDBOX=%s\n' "$helper" >> "$GITHUB_ENV"
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test ! -e "$RUNNER_TEMP/pod-ci-playwright"
+          printf 'PLAYWRIGHT_BROWSERS_PATH=%s/pod-ci-playwright\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - run: uv run playwright install --with-deps chromium
+      # Chromium's documented per-executable AppArmor option permits userns only
+      # for the installed browser AND headless shell, not a per-user wildcard.
+      # No dependency on an image-specific preinstalled Chrome SUID helper.
+      # https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md
+      - name: Allow exact Playwright executables to use their namespace sandbox
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run python .github/scripts/chromium_apparmor.py --output "$RUNNER_TEMP/pod-ci-playwright.apparmor"
+          sudo install -o root -g root -m 0644 "$RUNNER_TEMP/pod-ci-playwright.apparmor" /etc/apparmor.d/pod-ci-playwright
+          sudo apparmor_parser -r /etc/apparmor.d/pod-ci-playwright
+          # Verify loaded profiles rather than assuming parser success is enough.
+          for profile in pod-ci-playwright-0 pod-ci-playwright-1; do
+            sudo cat /sys/kernel/security/apparmor/profiles | grep -Fx "$profile (unconfined)"
+          done
+      - name: Smoke-test sandboxed Linux headless shell and full Chromium
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          DEBUG: pw:browser
+        run: |
+          uv run python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as pw:
+              for channel in (None, 'chromium'):
+                  browser = pw.chromium.launch(headless=True, chromium_sandbox=True, channel=channel)
+                  page = browser.new_page()
+                  page.set_content('<title>sandboxed CI browser</title>')
+                  assert page.title() == 'sandboxed CI browser'
+                  browser.close()
+          PY
       # Windows/macOS hosted runners have no Docker daemon. Docker configuration
       # parsing and all Docker execution are covered by the Linux job below.
       - run: uv run python -m pytest tests/ -m "not docker" --ignore=tests/test_public_distribution_security.py
       - run: uv run python -m pytest tests/test_public_distribution_security.py -k "not digest_release_compose_config"
-      - run: uv run ruff check scripts/package.py scripts/check_distribution.py tests/test_public_distribution*.py
+      - run: uv run ruff check .github/scripts scripts/package.py scripts/check_distribution.py tests/test_public_distribution*.py
       - run: uv run python scripts/check_distribution.py
   docker:
     name: Native Linux Docker (${{ matrix.runner }})
