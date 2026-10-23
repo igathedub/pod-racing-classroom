@@ -1,5 +1,9 @@
 param([ValidateSet('start','stop')][string]$Action = 'start')
 $ErrorActionPreference = 'Stop'
+# PS7 -> Python/cmd -> Windows PowerShell inherits incompatible Core modules.
+# This self-contained launcher needs only this runtime's built-in modules;
+# restrict discovery in this process, including direct -File invocations.
+$env:PSModulePath = "$PSHOME\Modules"
 Set-Location -LiteralPath $PSScriptRoot
 foreach ($name in @('DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH')) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
 function Docker-Checked([string[]]$Arguments) {
