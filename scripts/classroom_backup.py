@@ -230,36 +230,8 @@ def _windows_set_current_owner(path):
         raise BackupError("Windows ACL ownership update failed; private diagnostics suppressed")
 
 
-def _is_ntfs_reparse_point(path):
-    """Return True if the path is an NTFS reparse point (junction/mount). Fail-closed."""
-    try:
-        import ctypes, ctypes.wintypes
-    except ImportError:
-        return False  # Non-interactive/mock context; inventory handles detection.
-    attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
-    if attrs == 0xFFFFFFFF:
-        return False  # Path doesn't exist — safe default for preflight.
-    return bool(attrs & 0x400)
-
-
-def _reparse_point_safe_check(root):
-    """Reject root or any descendant that is an NTFS reparse point on Windows."""
-    if not WINDOWS:
-        return
-    # Check the root itself (not covered by inventory's rglob).
-    if _is_ntfs_reparse_point(root):
-        raise BackupError("Backup path must not be an NTFS junction or reparse point")
-    for path in sorted(root.rglob("*")):
-        if _is_ntfs_reparse_point(path):
-            raise BackupError(
-                "Backup contains a directory junction or unsupported reparse point"
-            )
-
-
 def privatize(root):
-    # Reject symlinks BEFORE any chmod/ownership writes.
-    _reparse_point_safe_check(root)
-    inventory(root)
+    inventory(root)  # Reject symlinks BEFORE chmod or following any private file.
     for path in [root, *root.rglob("*")]:
         if WINDOWS:
             _windows_set_current_owner(path)
@@ -269,9 +241,6 @@ def privatize(root):
 
 
 def private_mkdir(path):
-    if path.exists():
-        raise BackupError("Private directory already exists; refuse to overwrite")
-    _reparse_point_safe_check(path.parent)
     path.mkdir(mode=0o700)
     if WINDOWS:
         _windows_set_current_owner(path)
