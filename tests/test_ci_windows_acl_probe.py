@@ -160,6 +160,25 @@ def test_probe_emits_only_complete_filtered_report_after_cleanup(monkeypatch, tm
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Requires native Windows ACL APIs')
+@pytest.mark.parametrize('failure_phase', ['setup', 'seed_dacl'])
+def test_probe_reports_native_method_setup_failures(monkeypatch, tmp_path, capsys, failure_phase):
+    from scripts import ci_windows_acl_probe as probe
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    monkeypatch.setenv('TMPDIR', str(tmp_path))
+    marker = 'Add-Type -TypeDefinition' if failure_phase == 'setup' else '$fixtureAcl = Get-Acl'
+    monkeypatch.setattr(probe, 'SCRIPT', probe.SCRIPT.replace(marker, "throw 'PRIVATE_CANARY'; " + marker))
+    assert probe.main() == 0
+    captured = capsys.readouterr()
+    assert 'PRIVATE_CANARY' not in captured.out + captured.err
+    rows = json.loads(captured.out)
+    assert {row['method'] for row in rows} == EXPECTED_METHODS
+    failures = rows if failure_phase == 'setup' else [row for row in rows if row['method'] == 'owner_and_dacl_win32']
+    assert all(row['result'] == 'failed' and row['phase'] == failure_phase for row in failures)
+    assert all(type(row['hresult']) is int for row in failures)
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Requires native Windows ACL APIs')
 def test_probe_native_four_fresh_fixtures(monkeypatch, tmp_path, capsys):
     from scripts import ci_windows_acl_probe as probe
     monkeypatch.delenv('GITHUB_ACTIONS', raising=False)

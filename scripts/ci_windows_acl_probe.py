@@ -16,12 +16,17 @@ import tempfile
 METHODS = {'set_acl', 'owner_only_dotnet', 'owner_only_win32', 'owner_and_dacl_win32'}
 BOOL_FIELDS = {'owner_matches', 'before_owner_matches', 'dacl_unchanged', 'owner_rights_preserved'}
 NUMBER_FIELDS = {'hresult', 'native_error_code'}
+PHASES = {'setup', 'seed_dacl', 'before_acl', 'owner_update', 'after_acl'}
 
 
 def public_report(raw):
     if raw.get('method') not in METHODS or raw.get('result') not in {'ok', 'failed'}:
         raise ValueError('Invalid diagnostic result')
     result = {key: raw[key] for key in ('method', 'result')}
+    if 'phase' in raw:
+        if raw['phase'] not in PHASES:
+            raise ValueError('Invalid diagnostic phase')
+        result['phase'] = raw['phase']
     for key in BOOL_FIELDS | NUMBER_FIELDS:
         if key not in raw:
             continue
@@ -34,6 +39,22 @@ def public_report(raw):
 
 SCRIPT = r'''
 $ErrorActionPreference = 'Stop'
+$methods = @('set_acl', 'owner_only_dotnet', 'owner_only_win32', 'owner_and_dacl_win32')
+$rows = @()
+function Record-Failure($row, $failure, $phase) {
+    $row.result = 'failed'
+    $row.phase = $phase
+    $row.hresult = [int]$failure.Exception.HResult
+    $cause = $failure.Exception
+    for ($i=0; $i -lt 4 -and $null -ne $cause; $i++) {
+        if ($cause -is [System.ComponentModel.Win32Exception]) {
+            $row.native_error_code = [int]$cause.NativeErrorCode
+            break
+        }
+        $cause = $cause.InnerException
+    }
+}
+try {
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -47,8 +68,10 @@ public static class PodCiOwnerProbe {
 }
 '@
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-$rows = @()
-foreach ($method in @('set_acl', 'owner_only_dotnet', 'owner_only_win32', 'owner_and_dacl_win32')) {
+foreach ($method in $methods) {
+    $row = @{method=$method; result='failed'; owner_rights_preserved=$false; dacl_unchanged=$false}
+    $phase = 'seed_dacl'
+    try {
     $path = Join-Path $env:POD_CI_ACL_FIXTURE_ROOT $method
     if ($method -eq 'owner_and_dacl_win32') {
         # Seed OWNER RIGHTS on this fourth fresh fixture only, using DACL-only flags.
@@ -59,11 +82,16 @@ foreach ($method in @('set_acl', 'owner_only_dotnet', 'owner_only_win32', 'owner
         $seedDacl = New-Object byte[] $raw.DiscretionaryAcl.BinaryLength
         $raw.DiscretionaryAcl.GetBinaryForm($seedDacl, 0)
         $seedCode = [PodCiOwnerProbe]::SetOwnerAndDacl($path, 1, 4, $null, [IntPtr]::Zero, $seedDacl, [IntPtr]::Zero)
-        if ($seedCode -ne 0) { throw 'Fresh fixture DACL setup failed' }
+        if ($seedCode -ne 0) {
+            $row.native_error_code = [int]$seedCode
+            throw 'Fresh fixture DACL setup failed'
+        }
     }
+    $phase = 'before_acl'
     $before = Get-Acl -LiteralPath $path
     $dacl = $before.GetSecurityDescriptorSddlForm([System.Security.AccessControl.AccessControlSections]::Access)
-    $row = @{method=$method; result='failed'; before_owner_matches=($before.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq $user.Value)}
+    $row.before_owner_matches = ($before.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq $user.Value)
+    $phase = 'owner_update'
     try {
         if ($method -eq 'set_acl') {
             $before.SetOwner($user)
@@ -92,21 +120,26 @@ foreach ($method in @('set_acl', 'owner_only_dotnet', 'owner_only_win32', 'owner
         }
         $row.result = 'ok'
     } catch {
-        $row.hresult = [int]$_.Exception.HResult
-        $cause = $_.Exception
-        for ($i=0; $i -lt 4 -and $null -ne $cause; $i++) {
-            if ($cause -is [System.ComponentModel.Win32Exception]) {
-                $row.native_error_code = [int]$cause.NativeErrorCode
-                break
-            }
-            $cause = $cause.InnerException
-        }
+        Record-Failure $row $_ $phase
     }
+    $phase = 'after_acl'
     $after = Get-Acl -LiteralPath $path
     $row.owner_matches = ($after.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -eq $user.Value)
     $row.owner_rights_preserved = @($after.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq 'S-1-3-4' }).Count -gt 0
     $row.dacl_unchanged = ($dacl -eq $after.GetSecurityDescriptorSddlForm([System.Security.AccessControl.AccessControlSections]::Access))
+    } catch {
+        Record-Failure $row $_ $phase
+    }
     $rows += $row
+}
+} catch {
+    $failure = $_
+    $rows = @()
+    foreach ($method in $methods) {
+        $row = @{method=$method; result='failed'; owner_rights_preserved=$false; dacl_unchanged=$false}
+        Record-Failure $row $failure 'setup'
+        $rows += $row
+    }
 }
 ConvertTo-Json -InputObject $rows -Compress
 '''
