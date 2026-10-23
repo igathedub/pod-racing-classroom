@@ -88,7 +88,7 @@ def test_delete_updates_teacher_and_cached_projector_without_reset(tmp_path, mon
         app.state.tournament.worker.join(5)
         assert app.state.store.get('job')['status'] == 'finished'
         champion = app.state.store.get('champion')
-        assert champion and len(app.state.store.replays()) == 10
+        assert champion and len(app.state.store.replays()) == 12  # Nine qualifiers plus three finals.
         target = next(entry for entry in app.state.store.submissions() if entry['id'] == champion['id'])
         teacher = context.new_page()
         teacher.goto('https://classroom.test' + base + '/teacher?lang=de')

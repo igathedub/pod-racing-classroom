@@ -10,20 +10,21 @@ from arena.tournament import CompetitionError, Tournament, rank_results
 
 
 def tracks_fn(seed=2026, count=3):
-    return [{"id": f"track-{i}", "name": f"Track {i}", "checkpoints": [[1000, 1000], [8000, 4000], [1000, 8000]]} for i in range(count)]
+    return [{"id": f"track-{i}", "name": f"Track {i}", "checkpoints": [[1000 + i * 50, 1000], [8000, 4000 + i * 50], [1000, 8000]]} for i in range(count)]
 
 
 def sandbox_ready():
     return {"available": True, "detail": "Test sandbox", "image": "pod-classroom-bot:local"}
 
 
-def fake_race(entries, track, *, laps=2, max_turns=700, collisions=True, on_frame=None):
+def fake_race(entries, track, *, laps=2, max_turns=700, collisions=False, on_frame=None):
     rows = []
     for index, entry in enumerate(entries):
         invalid = entry["alias"] == "Crash"
         finished = not invalid and entry["alias"] != "DNF"
         rows.append({"id": entry["id"], "alias": entry["alias"], "place": index + 1, "finished": finished,
                      "disqualified": invalid, "error": "crash: secret-source-do-not-expose" if invalid else None,
+                     "finish_time": float(19.5 + index) if finished else None,
                      "turns": 20 + index if finished else max_turns, "passed": 6 if finished else 2, "distance_to_checkpoint": 10})
     frames = [{"turn": turn, "pods": [{**row, "x": 1000 + turn, "y": 1000, "vx": 1, "vy": 0, "angle": 0, "next_checkpoint": 1, "boost_available": True, "code": entry["code"]} for row, entry in zip(rows, entries)]} for turn in range(2)]
     for frame in frames:
@@ -89,7 +90,7 @@ def test_common_tracks_top_five_and_immutable_versions(tournament):
     assert job["total"] == 21
     join(tournament)
     assert len(calls) == 21
-    assert all(not kwargs["collisions"] for _, _, kwargs in calls)
+    assert all("collisions" not in kwargs for _, _, kwargs in calls)
     for submission in submissions:
         student_calls = [(entries, track) for entries, track, _ in calls if entries[0]["id"] == submission["id"]]
         assert [track["id"] for _, track in student_calls] == ["track-0", "track-1", "track-2"]
@@ -105,8 +106,12 @@ def test_common_tracks_top_five_and_immutable_versions(tournament):
     assert board[-1]["disqualified"]
     tournament.start_final()
     join(tournament)
+    assert len(calls) == 24
+    assert [track['id'] for _, track, _ in calls[-3:]] == ['track-3', 'track-4', 'track-5']
+    assert tournament.store.get('job')['completed'] == tournament.store.get('job')['total'] == 3
+    assert len(tournament.store.get('final_replay_ids')) == 3
     assert len(calls[-1][0]) == 5
-    assert calls[-1][2]["collisions"]
+    assert "collisions" not in calls[-1][2]
     assert [entry["id"] for entry in calls[-1][0]] == [row["id"] for row in board if not row["disqualified"]][:5]
     assert tournament.store.get("snapshot") == snapshot
     assert tournament.store.get("champion")["id"] == calls[-1][0][0]["id"]
@@ -266,5 +271,5 @@ def test_real_engine_contract_with_trusted_runner_injection(tournament):
     assert tournament.store.get("champion") is not None
     replay = tournament.store.read_replay(tournament.store.get("active_replay_id"))
     assert len(replay["frames"]) > 20 and len(replay["entries"]) == 5
-    assert replay["collisions"] is True
+    assert replay["collisions"] is False
     assert len(replay["frames"]) <= 701

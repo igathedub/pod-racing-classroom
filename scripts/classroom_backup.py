@@ -83,8 +83,9 @@ class BackupError(Exception):
 
 def snapshot_stats(root):
     """Read SQLite without application startup (which would mutate job state)."""
+    from contextlib import closing
     root = Path(root)
-    with sqlite3.connect((root / "classroom.sqlite3").resolve().as_uri() + "?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect((root / "classroom.sqlite3").resolve().as_uri() + "?mode=ro", uri=True)) as db:
         db.execute("PRAGMA query_only=ON")
         if db.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
             raise BackupError("SQLite integrity check failed")
@@ -202,41 +203,79 @@ def _windows_require_private_acl(path):
     acl = json.loads(result.stdout)
     if acl["owner"] != acl["user"]:
         raise BackupError("Windows ACL owner does not match current user; path is not private")
-    unexpected = set(acl.get("allow", [])) - {acl["user"], _WIN_SYSTEM, _WIN_ADMINS}
+    # OWNER RIGHTS denotes the object's current owner, already checked above.
+    # Python's native mkdir(0700) uses this SID on Windows.
+    unexpected = set(acl.get("allow", [])) - {acl["user"], _WIN_SYSTEM, _WIN_ADMINS, "S-1-3-4"}
     if unexpected:
         raise BackupError(
             "Windows ACL grants access to unintended principals; require owner-only ownership"
         )
 
 
+def _windows_set_current_owner(path):
+    """Correct elevated-token default ownership without changing the DACL."""
+    env = dict(os.environ, CLASSROOM_PRIVATE_ACL_PATH=str(path))
+    script = (
+        "$ErrorActionPreference = 'Stop'; "
+        "$acl = Get-Acl -LiteralPath $env:CLASSROOM_PRIVATE_ACL_PATH; "
+        "$acl.SetOwner([System.Security.Principal.WindowsIdentity]::GetCurrent().User); "
+        "Set-Acl -LiteralPath $env:CLASSROOM_PRIVATE_ACL_PATH -AclObject $acl"
+    )
+    try:
+        result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                                capture_output=True, text=True, timeout=10, env=env)
+    except (OSError, subprocess.SubprocessError):
+        raise BackupError("Windows ACL ownership update failed; private diagnostics suppressed") from None
+    if result.returncode:
+        raise BackupError("Windows ACL ownership update failed; private diagnostics suppressed")
+
+
 def privatize(root):
-    inventory(root)  # Reject symlinks BEFORE chmod or following any private file.
+    inventory(root)  # Reject root/descendant links and reparse points BEFORE mutation.
     for path in [root, *root.rglob("*")]:
-        if not WINDOWS:
+        if WINDOWS:
+            _windows_set_current_owner(path)
+        else:
             path.chmod(0o700 if path.is_dir() else 0o600)
         require_private(path)
 
 
 def private_mkdir(path):
     path.mkdir(mode=0o700)
+    if WINDOWS:
+        _windows_set_current_owner(path)
     require_private(path)
 
 
 def inventory(root):
-    entries = {}
-    for path in sorted(root.rglob("*")):
+    entries, files = {}, []
+    pending = [root]
+    while pending:
+        path = pending.pop()
         info = path.lstat()
+        # lstat reports junctions (and other Windows reparse points) as
+        # directories/regular files. Reject them before opening or descending.
+        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+            raise BackupError("Backup contains a link or reparse point")
+        if path == root and not stat.S_ISDIR(info.st_mode):
+            raise BackupError("Backup root must be a regular directory")
         name = path.relative_to(root).as_posix()
         if stat.S_ISDIR(info.st_mode):
-            entries[name] = {"directory": True}
+            pending.extend(sorted(path.iterdir(), reverse=True))
+            if path != root:
+                entries[name] = {"directory": True}
         elif stat.S_ISREG(info.st_mode) and info.st_nlink == 1:
-            digest = hashlib.sha256()
-            with path.open("rb") as handle:
-                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                    digest.update(chunk)
-            entries[name] = {"size": info.st_size, "sha256": digest.hexdigest()}
+            files.append((path, name, info.st_size))
         else:
             raise BackupError("Backup contains a link or nonregular file")
+    # Complete metadata-only validation before reading/hashing any file. Keep
+    # this traversal self-contained: controllers embed inventory's source.
+    for path, name, size in files:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        entries[name] = {"size": size, "sha256": digest.hexdigest()}
     return entries
 
 
@@ -406,7 +445,7 @@ def restore(docker, backup_dir, new_volume, image):
         import tempfile
         with tempfile.TemporaryDirectory(prefix="classroom-verify-", dir=root.parent) as temporary:
             audit = Path(temporary)
-            require_private(audit)
+            privatize(audit)
             private_mkdir(audit / "data")
             docker.call("cp", f"{helper}:/data/.", audit / "data")
             privatize(audit)

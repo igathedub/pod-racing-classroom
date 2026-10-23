@@ -1,0 +1,165 @@
+name: Public release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Existing tested main tag, e.g. v1.0.0 (never latest)'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: public-release
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: public-release
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    outputs:
+      app: ${{ steps.app.outputs.digest }}
+      bot: ${{ steps.bot.outputs.digest }}
+      revision: ${{ steps.validate.outputs.revision }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release tag and successful main CI
+        id: validate
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Expected vMAJOR.MINOR.PATCH'; exit 1; }
+          revision=$(git rev-parse --verify "refs/tags/$VERSION^{commit}")
+          test "$revision" = "$(git rev-parse origin/main)" || { echo 'Release tag must identify current main'; exit 1; }
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$revision" --branch main --event push --status success --json databaseId --jq 'length' > ci-count
+          test "$(cat ci-count)" -gt 0 || { echo 'Successful main CI required before releasing'; exit 1; }
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'This version already has a release. Choose a new version.'; exit 1
+          fi
+          git checkout --detach "$revision"
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish immutable app content
+        id: app
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/igathedub/pod-racing-classroom-app:${{ inputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/igathedub/pod-racing-classroom
+            org.opencontainers.image.revision=${{ steps.validate.outputs.revision }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ inputs.version }}
+          provenance: true
+          sbom: true
+      - name: Build and publish immutable bot content
+        id: bot
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: sandbox
+          file: sandbox/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/igathedub/pod-racing-classroom-bot:${{ inputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/igathedub/pod-racing-classroom
+            org.opencontainers.image.revision=${{ steps.validate.outputs.revision }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ inputs.version }}
+          provenance: true
+          sbom: true
+  public-gate:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.build.outputs.revision }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Require anonymous pulls and both platform manifests
+        env:
+          APP_DIGEST: ${{ needs.build.outputs.app }}
+          BOT_DIGEST: ${{ needs.build.outputs.bot }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          for spec in "app@$APP_DIGEST" "bot@$BOT_DIGEST"; do
+            image="ghcr.io/igathedub/pod-racing-classroom-$spec"
+            if ! docker manifest inspect "$image" > manifest.json; then
+              echo 'Anonymous GHCR access failed. First publication defaults PRIVATE even for public repositories.'
+              echo 'Owner: set BOTH packages to Public in GitHub Package settings; then rerun failed jobs only.'
+              echo 'Do not rerun successful build job: keep its recorded digests.'
+              exit 1
+            fi
+            python -c 'import json; m=json.load(open("manifest.json")); p={(x["platform"].get("os"),x["platform"].get("architecture")) for x in m["manifests"]}; assert {("linux","amd64"),("linux","arm64")} <= p'
+            docker pull "$image"
+            docker run --rm --network none --entrypoint python "$image" -I -c 'print("Anonymous release image executes")'
+          done
+      - name: Package pinned runtime bundle and checksums
+        env:
+          VERSION: ${{ inputs.version }}
+          APP_DIGEST: ${{ needs.build.outputs.app }}
+          BOT_DIGEST: ${{ needs.build.outputs.bot }}
+        run: python scripts/package.py --runtime --version "$VERSION" --app-digest "$APP_DIGEST" --bot-digest "$BOT_DIGEST"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: public-runtime
+          path: |
+            artifacts/Pod-Racing-Classroom-*.zip
+            artifacts/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+  release:
+    needs: [build, public-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Fetch verified artifact and create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          REVISION: ${{ needs.build.outputs.revision }}
+          APP_DIGEST: ${{ needs.build.outputs.app }}
+          BOT_DIGEST: ${{ needs.build.outputs.bot }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" --name public-runtime --dir artifacts
+          cd artifacts
+          sha256sum --check SHA256SUMS
+          printf '%s\n' 'Install Docker, unzip the runtime ZIP, then run Start.cmd / Start.command / sh Start.sh.' 'No Git, Python or Node required. See README.txt inside the ZIP.' '' "Revision: $REVISION" "App: ghcr.io/igathedub/pod-racing-classroom-app@$APP_DIGEST" "Bot: ghcr.io/igathedub/pod-racing-classroom-bot@$BOT_DIGEST" '' 'Both images were pulled anonymously on Linux/amd64. Native Linux/arm64 builds and bot tests are CI coverage; macOS Docker Desktop is not hosted CI coverage.' 'Source archives are available below from GitHub.' > release-notes.txt
+          gh release create "$VERSION" "Pod-Racing-Classroom-$VERSION.zip" SHA256SUMS --verify-tag --target "$REVISION" --title "Pod Racing Classroom $VERSION" --notes-file release-notes.txt --latest
+          gh release view "$VERSION" --json tagName,isDraft,url,assets > published.json
+          python -c 'import json,os; r=json.load(open("published.json")); v=os.environ["VERSION"]; assert r["tagName"] == v and not r["isDraft"]; assert {"Pod-Racing-Classroom-"+v+".zip","SHA256SUMS"} <= {a["name"] for a in r["assets"]}; print(r["url"])'

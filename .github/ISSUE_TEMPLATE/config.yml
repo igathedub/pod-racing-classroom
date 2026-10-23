@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Private security report / Vertrauliche Sicherheitsmeldung
+    url: https://github.com/igathedub/pod-racing-classroom/security/advisories/new
+    about: Report vulnerabilities privately; do not put exploit details or credentials in public issues.

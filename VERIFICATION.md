@@ -1,5 +1,11 @@
 # Verified release results
 
+> **Historical verification only:** the original release and bilingual/portable runs below predate collision-free racing. In particular, their collision-enabled finals are not evidence for the collision-free release. These recorded results are retained as history, not rerun or relabeled as new proof. Existing competition archives must not be changed.
+
+## Collision-free UI and rules checks
+
+`tests/test_collision_free_ui.py` and `tests/test_collision_free_rules.py` use synthetic data in disposable databases. Chromium checks final-kind/ID-based champion reveal only at playback end (including old contact finals), no reveal from qualification wins, unchanged archive bytes and submission records, and EN/DE instructions in both input protocols. The API rules checks preserve protocol/BOOST/SHIELD compatibility. These are not Docker race or deployment acceptance results; engine/tournament verification is separate.
+
 ## Original release verification
 
 ### Automated suite

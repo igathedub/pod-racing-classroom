@@ -220,6 +220,9 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                       "leaderboard": store.get("leaderboard", []), "job": store.get("job", store.initial_job()),
                       "active_replay_id": store.get("active_replay_id"), "replays": store.replays(),
                       "finalists": store.get("finalists", []), "champion": store.get("champion"),
+                      "final_format": store.get("final_format"), "final_tracks": store.get("final_tracks", []),
+                      "final_replay_ids": store.get("final_replay_ids", []),
+                      "final_leaderboard": store.get("final_leaderboard", []),
                       "moderation_revision": store.get("moderation_revision", 0), "server_time": time.time()}
         result["sandbox"] = tournament.sandbox_status()
         return localize_state(result, language_for(request))
@@ -246,11 +249,14 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                     "output": "target_x target_y thrust", "thrust": "integer 0–100, BOOST once per race, or SHIELD",
                     "opponent": "Nearest other pod, including in the simultaneous final.",
                     "flush": "Flush stdout after every command; no bootstrap input."},
-                "laps": 2, "max_turns": 700, "qualification_tracks": 3, "final_pods": 5,
+                "laps": 2, "max_turns": 700, "qualification_tracks": 3, "final_tracks": 3, "final_pods": 5,
+                "time_unit": "simulated_turns",
+                "racing": "Practice, qualification and final all run without collisions. Pods pass through each other.",
                 "qualification": "Same three tracks and starting positions against a reference ghost; collisions disabled.",
                 "ranking": "Disqualified entries last; completed tracks descending, total turns ascending (DNF costs 700), aggregate checkpoint progress descending, case-folded alias then UUID.",
-                "final": "Up to five eligible snapshot bots race simultaneously with collisions. At least two needed. Only a valid finisher can become champion.",
-                "physics": "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD lasts three turns with no thrust and heavier mass.",
+                "final": "Up to five eligible snapshot bots race on three different final tracks without collisions. At least two needed. Only a bot finishing all three can become champion.",
+                "final_scoring": "Lowest sum of the three final race times wins. Qualification times are excluded. All three final tracks must be finished without disqualification. Ties use case-folded alias then UUID. Times are simulated turns, not wall-clock seconds.",
+                "physics": "Classroom variant, not the official CodinGame engine: width 16000, height 9000, checkpoint radius 600, pod radius 400, rotation 18 degrees/turn, friction 0.85, BOOST 650. SHIELD remains accepted and prevents thrust for three turns; it has no collision effect.",
                 "security": "Python syntax checked without execution; bot execution only in restricted Docker.",
                 "limits": {"code_bytes": 32768, "submissions": MAX_SUBMISSIONS, "alias_characters": 24}}
         result['protocol']['name'] = input_protocol
@@ -357,7 +363,7 @@ def create_app(data_dir=None, *, race_fn=None, tracks_fn=None, sandbox_fn=None):
                                 f'<p id="protocol-notice" class="field-hint" data-i18n="{notice}">{notice}</p><form id="submission-form">')
             html = html.replace('data-i18n=" two lines">two lines', 'data-i18n=" one line">one line')
             html = html.replace('relative_angle\nopponent_x opponent_y</pre>', 'relative_angle</pre>')
-            physics = 'Checkpoint-only input; racing physics and collisions are unchanged.'
+            physics = 'Practice, qualification and final all run without collisions. Pods pass through each other.'
             html = re.sub(r'<p><span data-i18n-fragment data-i18n="In a final with up to five pods, line two describes your">.*?</p>',
                           f'<p data-i18n="{physics}">{physics}</p>', html, count=1)
             guide = (ROOT / 'web' / 'nadja-guide.html').read_text(encoding='utf-8')

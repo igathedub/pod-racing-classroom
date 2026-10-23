@@ -21,3 +21,6 @@ playwright-report/
 backups/
 private/
 secrets/
+# Private launcher output and persistent per-installation identity (at any depth).
+teacher-private.log
+.classroom-project

@@ -159,6 +159,7 @@ def test_frozen_delete_purges_snapshot_rankings_and_only_affected_replays(tmp_pa
         assert (store.replay_dir / f'{replay_id}.json').read_bytes() == before_files[replay_id]
     if finished:
         assert store.get('active_replay_id') is None
+        assert store.get('final_replay_ids') == [] and store.get('final_leaderboard') == []
         assert len(store.get('finalists')) == 4  # Do not pretend another bot raced the final.
     else:
         assert len(store.get('finalists')) == 5  # Qualification promotes next eligible pilot.

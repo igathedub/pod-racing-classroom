@@ -159,14 +159,14 @@ def test_race_freezes_protocol_before_startup_for_every_frame(monkeypatch, ambie
 def test_builtin_reference_finishes_all_tracks_in_checkpoint_only(monkeypatch, track, source):
     monkeypatch.setenv("POD_INPUT_PROTOCOL", "checkpoint-only" if source == "environment" else "legacy")
     if source == "explicit":
-        replay = run_race(_entries(), track, collisions=False, input_protocol="checkpoint-only")
+        replay = run_race(_entries(), track, input_protocol="checkpoint-only")
     else:
-        replay = run_race(_entries(), track, collisions=False)
+        replay = run_race(_entries(), track)
     assert replay["input_protocol"] == "checkpoint-only"
     assert replay["winner_id"] == "one"
     assert all(row["finished"] and not row["disqualified"] for row in replay["results"])
 
-    legacy = run_race(_entries(), track, collisions=False, input_protocol="legacy")
+    legacy = run_race(_entries(), track, input_protocol="legacy")
     assert legacy["input_protocol"] == "legacy"
     for result in (replay, legacy):
         result.pop("id")

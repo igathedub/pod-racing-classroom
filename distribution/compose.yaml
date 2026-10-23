@@ -1,0 +1,40 @@
+# Rendered with immutable multi-architecture image digests by scripts/package.py.
+services:
+  sandbox:
+    image: ghcr.io/igathedub/pod-racing-classroom-bot@BOT_DIGEST
+    pull_policy: missing
+    entrypoint: [python, -I, -c, "print('Bot image ready.')"]
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+  classroom:
+    image: ghcr.io/igathedub/pod-racing-classroom-app@APP_DIGEST
+    pull_policy: missing
+    depends_on:
+      sandbox:
+        condition: service_completed_successfully
+    ports: ["127.0.0.1:8765:8765"]
+    environment:
+      POD_DATA_DIR: /data
+      POD_INPUT_PROTOCOL: checkpoint-only
+      POD_BOT_IMAGE: ghcr.io/igathedub/pod-racing-classroom-bot@BOT_DIGEST
+      DOCKER_HOST: unix:///var/run/docker.sock
+    volumes:
+      - classroom-data:/data
+      - type: bind
+        source: ${POD_RELEASE_SOCKET:?Use Start launcher}
+        target: /var/run/docker.sock
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD, python, scripts/container_entrypoint.py, --healthcheck]
+      interval: 10s
+      timeout: 15s
+      start_period: 30s
+      retries: 6
+    restart: unless-stopped
+    stop_grace_period: 30s
+volumes:
+  classroom-data:

@@ -1,5 +1,7 @@
 """Synthetic private data only; Docker operations are always mocked."""
 import importlib
+import os
+from contextlib import closing
 import json
 import sqlite3
 import shutil
@@ -56,7 +58,7 @@ class DockerBoundary:
             self.containers[cmd[-1]]["State"]["Running"] = cmd[0] == "start"
         elif cmd[0] == "cp":
             source, destination = cmd[1:]
-            if ":" in source:
+            if source.split(":", 1)[0] in self.containers:
                 source_root = self.data if source.startswith(APP_ID) else self.restored_data
                 shutil.copytree(source_root, destination, dirs_exist_ok=True)
             else:
@@ -97,9 +99,14 @@ def module():
     return importlib.import_module("scripts.classroom_backup")
 
 
+@pytest.fixture(autouse=True)
+def isolated_backup_lock_namespace(tmp_path, monkeypatch):
+    monkeypatch.setattr(module(), "LOCK_ROOT", tmp_path / "locks")
+
+
 def sample_data(root):
     root.mkdir(parents=True)
-    with sqlite3.connect(root / "classroom.sqlite3") as db:
+    with closing(sqlite3.connect(root / "classroom.sqlite3")) as db, db:
         db.executescript("CREATE TABLE config(key TEXT PRIMARY KEY,value TEXT);"
                          "CREATE TABLE submissions(id TEXT,claim_token TEXT);"
                          "CREATE TABLE replays(id TEXT,title TEXT);")
@@ -176,7 +183,10 @@ def test_cold_backup_preserves_bytes_secrets_and_exact_container_configuration(t
     assert lifecycle[1][-1] == GATE_ID and lifecycle[3][-1] == APP_ID
     assert all("compose" not in call for call in fake.calls)
     for path in [output, *output.rglob("*")]:
-        assert path.stat().st_mode & 0o077 == 0
+        if mod.WINDOWS:
+            mod.require_private(path)
+        else:
+            assert path.stat().st_mode & 0o077 == 0
 
 
 def make_backup(tmp_path, monkeypatch):
@@ -207,6 +217,39 @@ def test_restore_creates_only_new_volume_and_isolated_owned_stopped_helper(tmp_p
         assert json.loads(db.execute("SELECT value FROM config WHERE key='admin_token'").fetchone()[0]) == "SYNTHETIC-TEACHER-SECRET"
         assert db.execute("SELECT claim_token FROM submissions").fetchone()[0] == "SYNTHETIC-STUDENT-SECRET"
         assert db.execute("SELECT id,title FROM replays").fetchone() == ("replay", "Synthetic title")
+
+
+def test_restore_establishes_owner_of_new_audit_directory(tmp_path, monkeypatch):
+    import subprocess
+    mod, fake, docker, root = make_backup(tmp_path, monkeypatch)
+    monkeypatch.setattr(mod, 'WINDOWS', True)
+    user = 'S-1-5-21-100'
+    owned = set()
+    audit_roots = set()
+
+    def native_acl(command, **kwargs):
+        path = Path(kwargs['env']['CLASSROOM_PRIVATE_ACL_PATH'])
+        if 'SetOwner(' in command[-1]:
+            owned.add(path)
+            return subprocess.CompletedProcess(command, 0, '', '')
+        owner = user
+        if path.name.startswith('classroom-verify-'):
+            audit_roots.add(path)
+            if path not in owned:
+                owner = mod._WIN_ADMINS
+        return subprocess.CompletedProcess(command, 0, json.dumps(
+            {'owner': owner, 'user': user, 'allow': ['S-1-3-4']}), '')
+
+    monkeypatch.setattr(mod.subprocess, 'run', native_acl)
+    result = mod.restore(docker, root, 'new_private_data', 'trusted-app:local')
+    assert result['counts']['submissions'] == 1
+    assert audit_roots and audit_roots <= owned
+    assert len(audit_roots) == 1
+    audit = next(iter(audit_roots))
+    assert owned == {audit, audit / 'data', *(
+        audit / 'data' / name for name in mod.inventory(root / 'data'))}
+    assert not any(path == root or root in path.parents for path in owned)
+    assert HELPER_ID not in fake.containers
 
 
 def test_inspect_output_strips_sha256_images(tmp_path, monkeypatch):
@@ -253,6 +296,7 @@ def test_backup_refuses_published_host_ports(tmp_path, monkeypatch):
                    tmp_path / "backup")
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits do not represent native Windows ACLs")
 def test_backup_owns_output_and_refuses_writable_parent(tmp_path, monkeypatch):
     import os as _os
     mod = module()

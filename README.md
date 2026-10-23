@@ -1,257 +1,159 @@
 # Pod Racing Classroom
 
-A local website for a Python coding session, alias-based submissions, fair qualification, and an animated final between the best five programs. No CodinGame account or internet service is required during the event once dependencies and the sandbox image have been installed.
+**Python bots. Fair qualification. A three-track classroom final.**
 
-This is an **independent classroom game**, not CodinGame's official referee. It preserves the beginner two-line observation/one-line action interface. The five-pod final is deliberately a classroom variant; it is not Gold-league two-pod play.
+Made for **Codeweek 2026 in Wiesbaden**. A self-hosted teaching game with English/German student, teacher and projector views, alias-based submissions, private practice and animated race replays. Students need a browser; the teacher runs Docker.
 
-## English / Deutsch
+This is an independent classroom game inspired by CodinGame, **not its official referee or an affiliated product**. Each student controls one pod; the five-pod final is not Gold-league two-pod play.
 
-Use the language selector in the header on any student, teacher or projector page. The selection is saved in that browser. Links such as `/teacher?lang=de`, `/?lang=de` and `/projector?lang=de` open German explicitly; `?lang=en` selects English. Switching does not reload the page or discard source drafts, aliases, private keys or replay playback position.
+[Deutsch](README.de.md) · [AI-assisted setup](docs/agent-setup.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
 
-The visible session name is **Coding session** in English and **Programmierphase** in German. The default submission window remains two hours (7200 seconds). Instructions, controls, accessibility labels, known validation messages, rules and starter comments are localized; Python identifiers, protocol tokens, submitted code and aliases remain unchanged. Unknown technical diagnostics are preserved rather than mistranslated.
+![Real application projector view with synthetic pilots and three-track final standings](docs/media/demo.png)
 
-## Install on another computer (recommended: Docker Compose)
+[Watch the real replay demo (WebM)](docs/media/demo.webm) · [Capture provenance and synthetic-data scope](docs/media/README.md). These captures show the real application, not mockups; they do not establish release publication or platform acceptance.
 
-[Deutsche Anleitung / German instructions](README.de.md)
+## Quickstart: choose your installation
 
-The host needs **only Docker with Compose** and the source folder: Docker Desktop in **Linux-container mode** on Windows/macOS, or Docker Engine with the Compose plugin on Linux. No host Python, uv, Node.js or npm is needed. Start Docker before proceeding. Internet is needed for the first image/dependency build; the classroom then runs locally without a cloud service.
+**Both routes require Docker with Compose**, started before launching: Docker Desktop in **Linux-container mode** on Windows/macOS, or Docker Engine with the Compose plugin on Linux. No host Python, Git, Node.js, npm or uv is required when using an archive. First installation needs internet access; once images are available, the classroom runs locally without a cloud service or CodinGame account.
 
-1. Copy/extract the source folder, or clone it if Git is installed:
-   ```text
-   git clone https://github.com/igathedub/pod-racing-classroom.git
-   cd pod-racing-classroom
-   ```
-   This repository is private: cloning/downloading requires an authorized GitHub account. Students do not need GitHub accounts. Do not distribute GitHub credentials, local databases or teacher keys with the source.
-2. In that folder, run:
-   ```text
-   docker compose up --build -d
-   docker compose ps
-   docker compose logs classroom
-   ```
-   Wait for `classroom` to be **healthy**. Compose builds `sandbox/Dockerfile`, tags it `pod-classroom-bot:local`, runs a trusted completion marker, and only then starts the app. Read the generated **Teacher admin token** from the classroom logs; there is no hardcoded/default password. The token is generated independently for each fresh data volume and printed again on every launch. Keep these logs private.
-3. Open `http://localhost:8765/teacher`, enter the token, and use `http://localhost:8765/projector` for projection. The safe default publishes only to this computer (`127.0.0.1`).
-4. For students on a **trusted private classroom LAN**, create a file named `.env` beside `compose.yaml`:
-   ```dotenv
-   POD_BIND=0.0.0.0
-   POD_PORT=8765
-   ```
-   Then run `docker compose up -d`. Give students `http://YOUR-CLASSROOM-LAN-IP:8765/`; do not use a Docker/VPN address. Allow only the private/local-subnet firewall rule described below, and test the link from another device. Never forward this port to the Internet. To return to local-only operation, set `POD_BIND=127.0.0.1` and run `docker compose up -d` again.
+### Prebuilt release ZIP — pending publication
 
-**Launch conveniences:** double-click `Docker-start.cmd` on Windows, or run `sh Docker-start.sh` on macOS/Linux. These run the same build/start, wait for health, and display the teacher token. Closing the launcher does not stop the detached containers. If port 8765 is occupied, set `POD_PORT=18765` in `.env`; use that port in URLs/firewall rules. `POD_BIND` accepts `127.0.0.1` or `0.0.0.0` (IPv4).
+The intended first release is **v1.0.0**, with the asset **`Pod-Racing-Classroom-v1.0.0.zip`** on [GitHub Releases](https://github.com/igathedub/pod-racing-classroom/releases). **Do not assume that this asset or its images exist until that release is published.** GitHub's automatic “Source code” archive is not the prebuilt ZIP. Use the source-build route below in the meantime.
 
-### Stop, restart, update and preserve data
+Once published:
 
-```text
-docker compose stop
-docker compose start
+1. Download that ZIP and extract it into a new, dedicated classroom folder. Keep that folder for subsequent starts and updates.
+2. Windows: double-click **`Start.cmd`**. macOS: use **`Start.command`**, or **`sh Start.sh`** in Terminal if blocked. Linux: **`sh Start.sh`**. These launchers pull the pinned app and bot images; they do not build source locally.
+3. Wait for the classroom to be healthy. Open **http://localhost:8765/teacher** and privately read the **Teacher admin token** in **`teacher-private.log`** in that folder. Start saves it with owner-only permissions instead of printing it to the console. Do not project, paste into chat or publish this file/token.
+4. Open **http://localhost:8765/projector** for projection; **http://localhost:8765/** is the student page on this computer.
+
+The release ZIP's `compose.yaml` pins `ghcr.io/igathedub/pod-racing-classroom-app@sha256:…` and `ghcr.io/igathedub/pod-racing-classroom-bot@sha256:…` to immutable multi-architecture digests resolved from the published **`v1.0.0`** tags, not `:1.0.0` or `latest`. The ellipses here are notation, not usable image references. Publication and anonymous image pulls are **not verified by these instructions**. A fresh installation uses the one-line **checkpoint-only** protocol. `Stop.cmd` / `Stop.command` / `sh Stop.sh` stop the saved project without deleting its data. Closing the launcher window does not stop detached containers.
+
+The ZIP launchers save a unique project name in **`.classroom-project`**; keep it for every restart/update. They ignore ambient `.env` files and the ZIP fixes **`127.0.0.1:8765`** in `compose.yaml`. The source-only `.env` settings and plain Compose commands below are not ZIP configuration instructions. If port 8765 is occupied, do not stop an unrelated service; resolve the conflict or use an explicitly configured source installation.
+
+### Build from the public source — available now
+
+Download and extract the public repository's source archive, or clone it if you already have Git. Until v1.0.0 is published, the tested application baseline for this guide is commit **`804ac8804dff8b29d0e1ccc4364bd29d0b46fdf2`**; it is not a released binary.
+
+For **source installations only**, in a **new installation folder**, create `.env` beside the root `compose.yaml`:
+
+```dotenv
+COMPOSE_PROJECT_NAME=pod-classroom-my-workshop
+POD_BOT_IMAGE=pod-classroom-bot:my-workshop
+POD_INPUT_PROTOCOL=checkpoint-only
+POD_BIND=127.0.0.1
+POD_PORT=8765
+```
+
+Choose a unique project name and local `POD_BOT_IMAGE` tag per independent source installation, so one build cannot replace another classroom's sandbox image. Do **not** apply this fresh-install example over an existing deployment's configuration. Source Compose defaults to the older `legacy` protocol unless explicitly configured; the setting above selects the new one-line starter without modifying saved bots.
+
+- **Windows:** double-click **`Docker-start.cmd`**.
+- **macOS/Linux:** run **`sh Docker-start.sh`**.
+
+These existing source launchers build the app and sandbox images, wait for health and display local logs. Then use the same teacher/projector URLs above. Equivalent **source-only** commands from that folder:
+
+```sh
+docker compose up --build -d --wait --wait-timeout 180
+docker compose ps
 docker compose logs classroom
 ```
 
-`docker compose down` removes this project's containers/network **but retains classroom data**. To start again, use `docker compose up -d`. Sessions, submissions, frozen entries, replays and the teacher key live in the project-scoped named volume `classroom-data` mounted at `/data`, not in the source folder. Reusing the same folder/project name retains that volume; moving/renaming it can select a new one. Keep the same Compose project name for updates (`docker compose -p YOUR-NAME ...` if you explicitly chose one). After updating source, run `docker compose up --build -d`; stop/finish active tournaments before updating. Interrupted jobs are marked failed, not silently resumed.
+Each fresh data installation generates its **own random teacher key** and persists it. There is no shared/default password. In a **source installation**, the key appears in local app logs; recover it with `docker compose logs classroom`. In the **ZIP**, Start saves those logs privately to `teacher-private.log`. Never delete data to recover a key or share unredacted logs.
 
-**Do not run `docker compose down --volumes` on the real classroom unless you deliberately want to delete all its data and teacher key.** No launcher uses that command. Copying the source to another computer creates an independent empty classroom; it does not transfer the existing competition. For a backup, stop the app and archive `/data` using a trusted volume-backup tool/container; restore the complete volume to the same mount on the destination. Backups contain student source and private keys: treat them as confidential. The teacher UI's explicit reset clears the competition while preserving the teacher key.
+## Run a lesson
 
-### Docker permissions and rootless Linux
+1. On a **separate empty demo installation**, add the six demo bots, run qualification and the three-track final before the workshop. Never reset a real classroom as a test.
+2. At `/teacher`, open the coding session. The submission window defaults to **120 minutes** and accepts **1–1440 whole minutes**. While submissions are open, setting remaining time counts from that click; it is separate from an invitation's expiry.
+3. Students choose an alias and paste/upload Python. They can update their entry before the deadline using the same browser's private claim key. Save source separately; a claim key is not the teacher key.
+4. Close submissions, then run qualification. Source versions are frozen. Up to **100 submissions** are supported; this does not mean 100 simultaneously running pods.
+5. Run the final after qualification: the best eligible **up to five** bots compete, with at least two required. Project the replay view, not teacher credentials. **Final overall** is separate from the current race's positions.
 
-**The app's `/var/run/docker.sock` mount is host-admin-equivalent access.** The app service is trusted administrative software, not a sandbox for untrusted code. It runs as root to access common Docker sockets. Only the app service receives the socket; **student bot containers never receive the socket, host mounts or network access**. Do not expose this HTTP service publicly, use an unauthenticated TCP Docker daemon, or treat a read-only socket mount as a security boundary.
+Teacher moderation can remove an entry, including **all replays containing that bot**, even shared final replays. It requires confirmation and is blocked while a race/job is running. It is deletion, not a permanent participant ban.
 
-For rootless Linux, set the real socket path in `.env`, for example:
+## Rules and Python interface
 
-```dotenv
-POD_DOCKER_SOCKET=/run/user/1000/docker.sock
-```
-
-Use your actual user ID/socket path, not necessarily 1000. The host Compose client must target the **same daemon** (the correct Docker context, or `DOCKER_HOST=unix:///run/user/1000/docker.sock`). Inside the app, `DOCKER_HOST` explicitly points at the mounted socket `/var/run/docker.sock`; a Windows `npipe://` host setting must not leak into the Linux app. A missing socket is an error, not an automatically created directory. Remote Docker contexts are not the default supported setup: builds, image tag and mounted socket must all refer to the same Linux daemon. The host must permit the runner's memory/CPU/PID limits; rootless resource enforcement depends on cgroup support and should be preflighted on the destination.
-
-The digest-pinned Python, uv and Docker CLI base images include Linux AMD64/ARM64 variants, and Compose does not force an architecture. **Verified here:** an AMD64 Linux app container using Docker Desktop's real Linux daemon on Windows, including six-entry qualification, a five-bot final, secret/replay persistence after restart and container recreation. macOS, native Linux and ARM64 hardware have not been exercised here; test the demo on the target machine before the workshop. Build tools and development dependencies are not installed in the runtime image.
-
-### Troubleshooting
-
-- **Unhealthy / Docker unavailable:** start Docker, ensure Linux containers are selected, check `docker compose logs classroom` and `docker compose ps`, and verify the socket/daemon context match. The app checks both daemon and sandbox image and fails closed; it never executes uploads on the host.
-- **Port already in use:** select another `POD_PORT` in `.env` and run `docker compose up -d`.
-- **Students cannot connect:** enable `POD_BIND=0.0.0.0`, use the host's private LAN IP and selected port, check the firewall and Wi-Fi client isolation. Linux Engine may publish ports outside ordinary host-firewall rules; ask IT to verify actual exposure, not just a firewall GUI setting.
-- **Cannot clone private repository:** authenticate Git with an authorized account, or ask its owner for a source archive; never put access tokens in commands/documents sent to students.
-- **Teacher token lost:** `docker compose logs classroom`. On restart the same persisted key is printed again. Do not delete the volume to recover a key.
-
-## Optional native Windows setup (Python/uv on the host)
-
-1. Install/start **Docker Desktop** with Linux containers. Install **uv** if needed: https://docs.astral.sh/uv/getting-started/installation/
-2. Double-click **Setup.cmd** once. This installs pinned application dependencies and builds the restricted Python bot image. Internet access is needed for this first setup.
-3. Double-click **Start-classroom.cmd**. Keep that window open. It prints the teacher address, projector address, candidate student LAN addresses and teacher admin token.
-4. Open `http://localhost:8765/teacher`, enter the admin token printed in the server window, and click **Open coding session**.
-5. Give students the printed `http://YOUR-LAN-IP:8765/` address. Use your classroom Wi-Fi/Ethernet IP, not Docker or VPN adapters. Students submit an alias and paste/upload a Python file. They can replace their own submission before the deadline using the same browser's saved claim token.
-6. At the end, close submissions (or allow the server deadline to close them), then **Run qualification**. Watch race progress and replays on the teacher/projector pages.
-7. Once qualification finishes, click **Run final**. Open `http://localhost:8765/projector`, choose fullscreen, and project the animated race and finishing order.
-
-If fewer than five valid entries exist, the final uses the actual number available, with at least two required. Invalid programs do not qualify.
-
-### Network access
-
-Windows may ask whether to allow Python on your network: allow only your **private classroom network**. School guest Wi-Fi sometimes blocks device-to-device connections; ask IT for an appropriate local network. Do not configure router port forwarding or expose this service to the Internet.
-
-If needed, an administrator can explicitly allow TCP8765 from the local subnet on a Private network:
-
-```powershell
-New-NetFirewallRule -DisplayName 'Pod Racing Classroom' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8765 -Profile Private -RemoteAddress LocalSubnet
-```
-
-This command is optional, requires administrator approval, and is not run automatically. Removing that rule after the workshop is recommended.
-
-### Command-line launch
-
-```text
-uv sync --frozen --python 3.11
-docker build -t pod-classroom-bot:local sandbox
-uv run python launch.py --host 0.0.0.0 --port 8765
-```
-
-For use only on the teacher's computer, omit `--host 0.0.0.0` (the default is localhost). `POD_DATA_DIR` selects another database/replay directory; the default is `data/`. Keep one server process/worker, because this local version uses a single tournament worker.
-
-## Optional time-limited classroom access
-
-Private operation remains backward compatible: `POD_CLASS_ACCESS_REQUIRED=0` (default)
-does not require participant login. To opt in, configure these Compose environment
-settings and recreate the app only through your normal approved update procedure:
-
-```dotenv
-POD_CLASS_ACCESS_REQUIRED=1
-POD_CLASS_COOKIE_SECURE=1
-POD_PARTICIPANT_SUBMISSIONS_PER_MINUTE=30
-POD_PARTICIPANT_PRACTICE_PER_MINUTE=6
-POD_JOIN_PER_MINUTE=120
-```
-
-Use HTTPS for the browser. Secure cookies are the default, including when a TLS
-proxy connects to an HTTP origin. `POD_CLASS_COOKIE_SECURE=0` is an explicit escape
-hatch **only for isolated HTTP tests**, not a public deployment recommendation.
-Boolean flags accept only `0`/`1`; quotas accept decimal integers from 1 to 10000.
-All HTTP/access settings are validated before the data store is created.
-
-Sign in at `/teacher` with the existing teacher secret. The separate, collapsed
-**Classroom invitations** controls create/renew a random code for 7200 seconds by
-default; select any whole-number duration from 1 to 86400 seconds. The code is
-shown only in the authenticated creation response/teacher tab, not the public
-state, status endpoint or logs. SQLite stores its SHA-256 hash, expiry and
-monotonically advanced invitation generation, plus hashed opaque session tokens.
-A status fetch or page reload cannot recover the code: renew it if lost.
-
-Students **and projectors** submit the code using JSON `POST /api/join`, never a
-URL. Joining sets a host-only HttpOnly, SameSite=Strict, Secure participant cookie
-valid no longer than the invitation. The persistent registry admits at most 60
-sessions. Rejoining with a still-valid browser cookie reuses its session and
-quotas; expired entries are pruned on join. A full registry returns 429 rather
-than evicting an active participant. Renewal/revocation invalidates all previous
-participant sessions immediately, including across restarts, but leaves the
-competition, submissions, bot claim tokens and archived replays unchanged.
-Already-running authorized work is not canceled and previously downloaded data
-cannot be recalled. UI polling returns to the join form within its next refresh;
-typed editor drafts and locally stored bot claims are not erased.
-
-When enabled, state/replay reads and submission/practice writes require a valid
-participant cookie or the correct `X-Admin-Token`. A participant cookie never
-authorizes teacher endpoints; practice still requires the separate bot claim.
-Teacher reads send the admin header, and teacher signin works before state is
-available. Per-participant 60-second fixed windows allow 30 submission attempts
-and 6 practice attempts; 429 includes `Retry-After`. These persisted budgets are
-keyed only by authenticated server sessions, not shared/spoofable IP headers.
-The existing process-wide 240/60 budgets still apply (including admin requests),
-and joining has a separate process-wide 120-attempt/minute budget. Invalid
-attempts count; global windows reset on restart and are not a distributed DoS
-solution. Clearing a cookie can consume another of the 60 slots; this is shared
-classroom invitation access, **not individual identity or abuse-proof fairness**.
-Use exactly one app worker and keep the server clock correct.
-
-API: public `GET /api/access` returns only `required`/`authorized`, and public
-`GET /api/health` returns only `sandbox.available` (also used by container health).
-Admin-only `GET /api/admin/access/invitation` reports active/generation/expiry;
-`POST /api/admin/access/invitation` takes `{"duration_seconds":7200}` (or `{}`);
-`POST /api/admin/access/revoke` revokes access. Resetting the whole classroom also
-clears its access registry; it is not the non-destructive revoke operation.
-
-**This feature is not approval for anonymous public code execution.** The app's
-Docker socket remains host-admin-equivalent. Edge access/DoS controls, isolation,
-HTTPS and direct-origin protection still need independent review. Whole-host
-teacher-only Cloudflare Access configuration is outside this feature's scope;
-see [SECURITY_PREPARATION.md](SECURITY_PREPARATION.md). No deployment is performed
-by the tests. `tests/test_class_access*.py` exercise isolated FastAPI databases and
-real Chromium with actual CSP headers; injected fake race/sandbox functions do
-not constitute verification of Docker bot execution.
-
-## Student interface
-
-Download the starter from the website. Each turn your program reads:
+Fresh installations use **one input line per turn**, with no opponent-coordinate line:
 
 ```text
 x y checkpoint_x checkpoint_y distance relative_angle
-opponent_x opponent_y
 ```
 
-Then prints:
+Output one action and flush it:
 
 ```text
 target_x target_y thrust
 ```
 
-- Coordinates are integers. The visual course is 16000 by 9000 units.
-- Numeric thrust is 0..100 (out-of-range integers are clamped). `BOOST` provides one stronger acceleration per race; later BOOST commands behave like thrust 100.
-- `SHIELD` prevents thrust and makes the pod heavier for its activation turn and the next two turns. The first turn may face the target freely; subsequent turns rotate by at most 18 degrees.
-- In the final, the opponent line describes the **nearest other pod**. Do not assume there are only two participants.
-- Keep `while True` and read both lines every turn. Keep variables outside the loop when they must survive across turns.
-- Use `print(..., flush=True)` for actions. Send debugging to `sys.stderr`, not to the action channel.
-- Syntax errors are rejected at submission time. Runtime errors, missing output, excessive output and turn timeouts are reported by the referee.
-- Only Python's standard library is available in the isolated bot environment. Uploaded programs do not get network access, host files or your installed packages.
+Read the website's starter and rules for the **active installation**. An existing `legacy` installation sends a second opponent line; changing protocols breaks bots that still read it. The checkpoint-only Nadja starter must **not** read an enemy line.
 
-Use the site rules as the authoritative description of the implemented classroom engine, including shield behavior and timeout/ranking details.
+- Python standard library only. Keep persistent state outside the loop. Use `print(..., flush=True)`; debugging goes to `sys.stderr`.
+- Numeric thrust is 0–100 (out-of-range integers are clamped). `BOOST` works once per race; later uses behave as thrust 100. `SHIELD` suppresses thrust on its activation turn and the next two turns; it has no defensive effect without collisions.
+- Practice, qualification and final all run without collisions. Pods cannot push or block each other.
+- Qualification uses the same three deterministic courses for every bot: Wide Circuit, Five Corners and Switchback. A disqualified bot cannot enter the final.
+- The final uses **Hairpin Run, Diamond Loop and Technical Loop**. The lowest sum of the **three unrounded final finish times** wins; qualification times do not count. These are fractional **simulated turns, not real seconds**. Display rounding does not affect ranking.
+- A champion must finish all three final tracks without disqualification. Otherwise the result is DNF/DQ; if nobody has a valid total, there is no champion. Exact total ties use case-folded alias, then UUID.
+- Teacher views can show the aggregate immediately. Student/projector views reveal it after the third current final replay finishes, once the series/job is complete. This presentation timing is not an API secrecy boundary.
 
-## How the competition is scored
+More: [three-track scoring](docs/three-track-final.md) · [submission-window controls](docs/configurable-submission-time.md).
 
-**Qualification:** each student runs the same three deterministic courses from the same starting position, with collisions disabled and a trusted reference opponent. This measures the student's racing behavior fairly rather than rewarding luck in a particular pairing. Rank completed courses first, then the tournament's recorded time/progress tiebreakers. A disqualified program cannot enter the final. All submitted source versions are frozen when qualification begins.
+## Local first; trusted LAN only by explicit choice
 
-**Final:** up to five best valid programs race together with collisions enabled. They use the frozen source, not any later edits. The replay records every turn and the referee's finishing order. The website reports when no valid finisher exists instead of silently declaring a crashed program the champion.
+Default binding is **`127.0.0.1:8765`**, accessible only on the host. Nothing in this guide automatically opens a firewall, creates a tunnel or changes an existing live deployment.
 
-## Teacher workflow
+For a trusted classroom LAN **using a source installation only**, agree the change with school IT, then explicitly set `POD_BIND=0.0.0.0` in **this installation's** `.env` and recreate its service with `docker compose up -d`. Share the host's private LAN IP, not a Docker/VPN address. Limit firewall access to the private local subnet and test from a second device; guest Wi-Fi may block peers. Linux Docker port publishing may bypass some host-firewall rules: verify actual exposure. Restore `POD_BIND=127.0.0.1` and recreate to return to local-only use. An occupied port can be changed with `POD_PORT`, updating all URLs accordingly.
 
-Before the children arrive:
+Optional classroom invitations admit up to **100 participant sessions**, including projector browsers. They use expiring shared codes and cookies, not individual identity or abuse-proof admission. HTTPS is required for default Secure cookies. Invitations and rate limits **do not make anonymous public code execution safe**. See [Security](SECURITY.md).
 
-- Start Docker Desktop and the website; verify the sandbox indicator is ready.
-- Test the student link from another device on the classroom network.
-- Use the **demo** in an empty session to run genuine example programs and rehearse qualification/final.
-- Reset the demo using the explicit reset confirmation before starting the real session.
-- Keep the teacher token private; do not project the teacher login field.
-- Have students keep copies of their source code. Alias replacement ownership is stored in their browser; clearing local storage/using another browser loses the saved claim token.
+## Stop, restart, update — preserve your classroom
 
-During the two-hour exercise, encourage students to start with a working checkpoint-following bot, then experiment with turning, slowing down, boost timing, and remembering earlier positions. This is a beginner programming activity; no machine learning or genetic algorithm is necessary.
+**ZIP:** stop with `Stop.cmd` / `Stop.command` / `sh Stop.sh`, then resume with `Start.cmd` / `Start.command` / `sh Start.sh` in the **same folder**, retaining `.classroom-project`. Do not use plain `docker compose stop/start` for the ZIP: it omits the saved project, defaults file and socket setup.
 
-The clock and submissions persist across server restarts. An interrupted tournament is reported as failed rather than left looking permanently active. Do not reset the database during a running tournament.
+**Source only:** run commands from the same installation folder with the **same Compose project name and configuration**:
 
-## Safety and limitations
-
-All uploaded source is executed **only inside restricted Docker containers**. The app fails closed if the Docker daemon/image is unavailable; there is no unsafe host-execution fallback. Containers use no network, no host mounts, non-root users, a read-only root filesystem, dropped capabilities, and resource/output limits. The teacher's admin token and student ownership tokens are not public leaderboard data.
-
-Docker is a practical isolation boundary, not a mathematical guarantee against every kernel/runtime vulnerability. Keep Docker Desktop updated, run this on a trusted private classroom network, avoid sensitive host sharing, and use a disposable machine/VM for hostile public submissions. The HTTP site is not designed for public hosting or transmitting secrets across untrusted networks.
-
-The initial classroom release has a 60-submission cap. Qualification runs sequentially to bound resource use; final participants have separate persistent containers. Preflight a realistic class size on the machine before the event. Race replay playback can be paused, sped up, scrubbed or replayed; it need not match the time the CPU spends evaluating programs. Projector playback hides the champion until the finish and fits the camera to include drifting pods.
-
-Each race is two laps, with a maximum of 700 turns. Bots have 0.5 seconds to answer a normal turn, 2 seconds for their first turn, and 15 seconds for container startup. Output caps apply across the entire race: 1 MiB stdout, 64 KiB stderr, 1 KiB per command line. Resource limits are 64 MiB memory, half a CPU and 32 processes per bot. The teacher secret is printed again on restart; keep the console private.
-
-## Development and verification
-
-```text
-uv run pytest -m "not docker"
-uv run pytest -m docker
-uv run ruff check arena tests scripts launch.py
-uv run python scripts/smoke_tournament.py
-uv run python scripts/browser_smoke.py
-uv run python scripts/i18n_browser_test.py
-uv run python scripts/deployment_test.py
+```sh
+docker compose stop
+docker compose start
+docker compose ps
 ```
 
-The smoke test uses a disposable database, submits genuine Python programs, runs Docker qualification and the five-pod final, checks invalid-program exclusion and saves evidence under `artifacts/`. It does not seed the actual classroom database.
+Sessions, source, frozen entries, replays and the teacher key live in the project-scoped `classroom-data` volume, mounted at `/data`. For source installations, `docker compose down` retains that volume, but restart after `down` requires `docker compose up -d`. **Never use `down --volumes`, volume prune or reset as an update/recovery step.** Changing a source project name/folder or losing the ZIP's `.classroom-project` can select a different volume and make existing data appear missing.
 
-The browser test drives the student and teacher controls through Playwright, then checks a real five-bot Docker final, projector playback, mobile layout, JavaScript errors and persistence after a server-process restart. It uses installed Edge or Chrome when available. See `VERIFICATION.md` for the verified release results.
+Finish active jobs, stop and privately back up the complete data volume and installation state before updating. **ZIP:** review release notes/checksums, then extract the newer verified release **over the same installation folder**, preserving `.classroom-project`, the data volume and teacher key; use its Start launcher to pull/start. Do not extract into a new folder or replace the saved project file. **Source:** retain `.env`, project name, unique bot image tag, data volume and teacher key; after reviewing changes use `docker compose up --build -d`. Do not turn a running classroom into a fresh installation or silently change its protocol. Interrupted jobs are marked failed, not resumed. A copied source/ZIP folder alone is **not a data backup**. Backups include student source and private credentials.
 
-The Compose deployment test uses a randomly named project, an unused localhost port and a disposable named volume. It exercises the real containerized API/Docker runner, six-bot qualification, five-bot final, then verifies the generated teacher key, submissions, leaderboard and replay after both restart and container recreation. It deletes only its own containers/volume, retains the shared sandbox image and writes `artifacts/deployment-result.json`.
+## Security boundary
 
-Architecture: FastAPI + SQLite + Python deterministic engine + Docker Python bots + vanilla HTML/JavaScript Canvas. No CDN assets, frontend build step, cloud service, or paid API.
+Untrusted bots run **only in restricted Docker containers**: no network, Docker socket or host mounts; non-root execution, read-only filesystem, dropped capabilities and resource/output limits. Missing Docker/sandbox fails closed; no host-execution fallback.
 
-Original application source is MIT-licensed; third-party dependencies retain their own licenses. Research references include the MIT Coders Strike Back referee, but compatibility with the official current engine is not claimed.
+**The trusted app mounts the Docker socket: this is host-admin-equivalent access.** A read-only socket mount is not a boundary. Docker isolation is not a guarantee against kernel/runtime vulnerabilities. This is a local/trusted-LAN classroom tool, **not a turnkey anonymous internet service**. Public deployment requires independent isolation, access, HTTPS, origin and abuse reviews. Keep Docker patched and use a dedicated disposable VM for genuinely hostile code. See [SECURITY.md](SECURITY.md) before deployment.
+
+For source installations, rootless Linux needs the real socket in `POD_DOCKER_SOCKET` and a host Compose client targeting that same daemon. Remote Docker contexts are not the standard supported setup; rootless resource limits depend on cgroup support. Do not guess a socket path or reuse a Windows `npipe://` endpoint inside Linux containers.
+
+## Performance and platform evidence
+
+A reported full-workflow benchmark on a **16-logical-CPU Windows desktop** used 100 identical Nadja sources and **100 logical HTTP clients**, not 100 rendered browsers:
+
+| Measurement | Observed result |
+|---|---|
+| 100 submissions | 0.645 s total; p95 571 ms |
+| 300 qualification races | 858.436 s |
+| Three final races | 36.192 s |
+| Archives | 303; no DQ/DNF |
+| Poll requests | 99,873; all HTTP 200, no timeouts |
+| Final state response latency | p95 3.327 s; max 4.481 s |
+
+Polling still missed **511 state / 1,405 replay ticks** during the final and **2,100 qualification replay ticks**. Successful HTTP responses are **not** evidence of smooth 100-browser playback, fixed classroom duration or public-hosting capacity. Different bots and hardware change runtime. Older single-final measurements in historical notes are not the current three-track workload.
+
+| Platform | Scope of evidence / recommendation |
+|---|---|
+| Windows + Docker Desktop, Linux x86-64 containers | Real Docker classroom workflows exercised; benchmark above on a Windows desktop. |
+| macOS + Docker Desktop | Intended setup; no fresh hardware installation verified for this release. Manually run the full demo on the target Mac before teaching. |
+| Native Linux / ARM64 | Build/platform support is not hardware acceptance. Check actual published CI/image results and manually preflight the target machine; do not infer native execution from multi-architecture manifests. |
+
+## Troubleshooting and community
+
+- **Docker unavailable/unhealthy:** start Docker and select Linux containers. ZIP: retry its Start launcher and inspect errors locally. Source: inspect `docker compose ps` and local `docker compose logs classroom`; check daemon/socket alignment.
+- **Port conflict:** ZIP port 8765 is fixed; source installations can choose another `POD_PORT`. Do not stop an unrelated service.
+- **Data looks empty:** check the original folder and ZIP `.classroom-project`, or source `.env` and project name. Do not reset or create new data over it.
+- **Lost teacher key:** ZIP: run Start and privately read `teacher-private.log`; source: inspect local classroom logs. Do not share unredacted logs or delete the volume.
+
+For setup automation use the [safe agent prompt](docs/agent-setup.md). Report reproducible non-security problems through [GitHub Issues](https://github.com/igathedub/pod-racing-classroom/issues); follow [SECURITY.md](SECURITY.md) for vulnerabilities. [Contributions](CONTRIBUTING.md) are welcome. Original project code is [MIT licensed](LICENSE); dependencies retain their own licenses.

@@ -36,7 +36,9 @@ body[data-view=student] #student-panel #code{flex:1;min-height:58vh;height:620px
 
 /* Role-first hierarchy and progressive disclosure, without changing race behavior. */
 main{padding-bottom:24px}
-.site-footer,.panel-heading .eyebrow,.stage-line{display:none}
+.panel-heading .eyebrow,.stage-line{display:none}
+.site-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;margin-top:24px;padding:16px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+.site-footer a{padding:8px 0;white-space:normal}
 body[data-view=teacher] .monitor{grid-template-columns:minmax(340px,420px) minmax(0,1fr);grid-template-areas:"role race" "role rank"}
 .teacher-actions{gap:10px}.teacher-actions h3{margin:0;font-size:14px;color:var(--muted)}
 .teacher-actions h3:not(:first-child){margin-top:12px}
@@ -65,3 +67,14 @@ body[data-view=projector] .session-clock,body[data-view=projector] .race-facts,b
 #teacher-access .admin-auth{border:0;padding-top:0}
 .projector-info details summary{padding:8px 0}
 @media(max-width:900px){body[data-view=teacher] .monitor{grid-template-columns:1fr;grid-template-areas:"role" "race" "rank"}}
+
+/* Overall finals retain every time column; scroll locally instead of hiding one. */
+.rank-panel{min-width:0}
+/* Numeric headers share the same right edge as their column values. */
+.rank-table th:nth-child(n+3){text-align:right}
+.ranking-tabs,body[data-view=projector] .ranking-tabs{flex-wrap:wrap;gap:8px 14px}
+.ranking-tabs button{min-width:0}
+.final-table{min-width:580px}
+#rankings .final-table th,#rankings .final-table td{display:table-cell;padding-inline:10px}
+.final-table .number{white-space:nowrap}
+.final-table td:nth-child(2){overflow-wrap:anywhere;min-width:120px}

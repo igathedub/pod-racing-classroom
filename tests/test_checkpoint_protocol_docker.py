@@ -41,7 +41,7 @@ def race(sandbox,source,protocol,track,max_turns=700):
         if isinstance(runner,DockerRunner):
             names.append(runner.name)
         return runner
-    replay=run_race([{'id':'candidate','alias':'Synthetic candidate','code':source},{'id':'ghost','alias':'Reference ghost','kind':'reference','code':'baseline'}],track,laps=2,max_turns=max_turns,collisions=False,input_protocol=protocol,runner_factory=factory)
+    replay=run_race([{'id':'candidate','alias':'Synthetic candidate','code':source},{'id':'ghost','alias':'Reference ghost','kind':'reference','code':'baseline'}],track,laps=2,max_turns=max_turns,input_protocol=protocol,runner_factory=factory)
     for name in names:
         assert not sandbox.call('container','ls','--all','--quiet','--filter','name=^/'+name+'$').strip()
     return next(row for row in replay['results'] if row['id']=='candidate')
