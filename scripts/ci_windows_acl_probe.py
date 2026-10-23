@@ -158,7 +158,9 @@ def main():
                 (root / method).mkdir(mode=0o700)
             result = subprocess.run(
                 ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', SCRIPT],
-                env=dict(os.environ, POD_CI_ACL_FIXTURE_ROOT=str(root)),
+                env={**{k: v for k, v in os.environ.items()
+                        if k.casefold() != "psmodulepath"},
+                     "POD_CI_ACL_FIXTURE_ROOT": str(root)},
                 capture_output=True, text=True, timeout=60,
             )
             if result.returncode:

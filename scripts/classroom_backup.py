@@ -188,7 +188,9 @@ _WIN_ADMINS = "S-1-5-32-544"
 
 def _windows_require_private_acl(path):
     """Validate Windows ACL via PowerShell so owner-only access is enforced."""
-    env = {k: v for k, v in os.environ.items()}
+    # PowerShell Core module paths are incompatible with Windows PowerShell 5.1.
+    # Isolate only the subprocess; keep the caller environment and ACL policy.
+    env = {k: v for k, v in os.environ.items() if k.casefold() != "psmodulepath"}
     env["CLASSROOM_PRIVATE_ACL_PATH"] = str(path)
     script = (
         "$acl = Get-Acl $env:CLASSROOM_PRIVATE_ACL_PATH; "
@@ -214,7 +216,8 @@ def _windows_require_private_acl(path):
 
 def _windows_set_current_owner(path):
     """Correct elevated-token default ownership without changing the DACL."""
-    env = dict(os.environ, CLASSROOM_PRIVATE_ACL_PATH=str(path))
+    env = {k: v for k, v in os.environ.items() if k.casefold() != "psmodulepath"}
+    env["CLASSROOM_PRIVATE_ACL_PATH"] = str(path)
     script = (
         "$ErrorActionPreference = 'Stop'; "
         "$acl = Get-Acl -LiteralPath $env:CLASSROOM_PRIVATE_ACL_PATH; "

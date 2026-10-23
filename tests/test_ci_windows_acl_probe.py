@@ -85,6 +85,25 @@ def test_probe_report_rejects_non_numeric_error(bad):
         public_report({'method': 'set_acl', 'result': 'failed', 'hresult': bad})
 
 
+@pytest.mark.parametrize('key', ['PSModulePath', 'PSMODULEPATH', 'psmodulepath'])
+def test_probe_isolates_windows_powershell_module_discovery(key, monkeypatch, tmp_path, capsys):
+    from scripts import ci_windows_acl_probe as probe
+    parent_env = {'TMPDIR': str(tmp_path), key: 'PRIVATE_CORE_MODULE_CANARY'}
+    monkeypatch.setattr(probe, 'os', SimpleNamespace(name='nt', environ=parent_env))
+
+    def run(*args, **kwargs):
+        assert all(k.casefold() != 'psmodulepath' for k in kwargs['env'])
+        assert kwargs['env']['TMPDIR'] == str(tmp_path)
+        rows = [{'method': m, 'result': 'ok'} for m in sorted(EXPECTED_METHODS)]
+        return SimpleNamespace(returncode=0, stdout=json.dumps(rows), stderr='')
+
+    monkeypatch.setattr(probe.subprocess, 'run', run)
+    probe.main()
+    assert parent_env[key] == 'PRIVATE_CORE_MODULE_CANARY'
+    assert 'PRIVATE_CORE_MODULE_CANARY' not in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == []
+
+
 EXPECTED_METHODS = {'set_acl', 'owner_only_dotnet', 'owner_only_win32', 'owner_and_dacl_win32'}
 
 

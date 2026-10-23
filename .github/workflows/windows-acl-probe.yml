@@ -27,9 +27,3 @@ jobs:
         env:
           PYTHONUTF8: '1'
         run: uv run --frozen python scripts/ci_windows_acl_probe.py
-      - name: Compare native Windows PowerShell module discovery
-        env:
-          PYTHONUTF8: '1'
-        run: |
-          Remove-Item Env:PSModulePath -ErrorAction SilentlyContinue
-          uv run --frozen python scripts/ci_windows_acl_probe.py
