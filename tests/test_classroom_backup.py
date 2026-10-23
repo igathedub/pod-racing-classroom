@@ -244,6 +244,11 @@ def test_restore_establishes_owner_of_new_audit_directory(tmp_path, monkeypatch)
     result = mod.restore(docker, root, 'new_private_data', 'trusted-app:local')
     assert result['counts']['submissions'] == 1
     assert audit_roots and audit_roots <= owned
+    assert len(audit_roots) == 1
+    audit = next(iter(audit_roots))
+    assert owned == {audit, audit / 'data', *(
+        audit / 'data' / name for name in mod.inventory(root / 'data'))}
+    assert not any(path == root or root in path.parents for path in owned)
     assert HELPER_ID not in fake.containers
 
 

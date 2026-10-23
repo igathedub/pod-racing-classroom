@@ -231,7 +231,7 @@ def _windows_set_current_owner(path):
 
 
 def privatize(root):
-    inventory(root)  # Reject symlinks BEFORE chmod or following any private file.
+    inventory(root)  # Reject root/descendant links and reparse points BEFORE mutation.
     for path in [root, *root.rglob("*")]:
         if WINDOWS:
             _windows_set_current_owner(path)
@@ -248,20 +248,34 @@ def private_mkdir(path):
 
 
 def inventory(root):
-    entries = {}
-    for path in sorted(root.rglob("*")):
+    entries, files = {}, []
+    pending = [root]
+    while pending:
+        path = pending.pop()
         info = path.lstat()
+        # lstat reports junctions (and other Windows reparse points) as
+        # directories/regular files. Reject them before opening or descending.
+        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+            raise BackupError("Backup contains a link or reparse point")
+        if path == root and not stat.S_ISDIR(info.st_mode):
+            raise BackupError("Backup root must be a regular directory")
         name = path.relative_to(root).as_posix()
         if stat.S_ISDIR(info.st_mode):
-            entries[name] = {"directory": True}
+            pending.extend(sorted(path.iterdir(), reverse=True))
+            if path != root:
+                entries[name] = {"directory": True}
         elif stat.S_ISREG(info.st_mode) and info.st_nlink == 1:
-            digest = hashlib.sha256()
-            with path.open("rb") as handle:
-                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                    digest.update(chunk)
-            entries[name] = {"size": info.st_size, "sha256": digest.hexdigest()}
+            files.append((path, name, info.st_size))
         else:
             raise BackupError("Backup contains a link or nonregular file")
+    # Complete metadata-only validation before reading/hashing any file. Keep
+    # this traversal self-contained: controllers embed inventory's source.
+    for path, name, size in files:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        entries[name] = {"size": size, "sha256": digest.hexdigest()}
     return entries
 
 
