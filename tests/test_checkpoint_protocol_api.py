@@ -1,5 +1,6 @@
 """Backup protocol opt-in must be reflected consistently in API and starter."""
 from fastapi.testclient import TestClient
+from tournament_wait import wait_tournament
 import pytest
 from test_base_path import prefixed
 
@@ -64,7 +65,7 @@ def test_archived_checkpoint_replays_keep_protocol_identifier(tmp_path,monkeypat
     with TestClient(app) as client:
         assert client.post('/backup/api/admin/demo',json={},headers=AUTH).status_code==200
         assert client.post('/backup/api/admin/qualify',json={},headers=AUTH).status_code==202
-        app.state.tournament.worker.join(timeout=5)
+        wait_tournament(app)
         assert app.state.store.get('job')['status']=='finished'
         replays=app.state.store.replays()
         assert len(replays)==18

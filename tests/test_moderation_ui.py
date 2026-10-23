@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
+from tournament_wait import wait_tournament
 from playwright.sync_api import expect, sync_playwright
 
 from test_api import TOKEN
@@ -82,10 +83,10 @@ def test_delete_updates_teacher_and_cached_projector_without_reset(tmp_path, mon
     from test_api import AUTH
     with moderation_browser(tmp_path, monkeypatch, base) as (app, client, context, errors, deletes):
         assert client.post(base + '/api/admin/qualify', json={}, headers=AUTH).status_code == 202
-        app.state.tournament.worker.join(5)
+        wait_tournament(app)
         assert app.state.store.get('job')['status'] == 'finished'
         assert client.post(base + '/api/admin/final', json={}, headers=AUTH).status_code == 202
-        app.state.tournament.worker.join(5)
+        wait_tournament(app)
         assert app.state.store.get('job')['status'] == 'finished'
         champion = app.state.store.get('champion')
         assert champion and len(app.state.store.replays()) == 12  # Nine qualifiers plus three finals.

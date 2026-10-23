@@ -2,6 +2,9 @@
 import json
 import threading
 import uuid
+from types import SimpleNamespace
+
+from tournament_wait import wait_tournament
 
 import pytest
 
@@ -46,10 +49,9 @@ def seed(tournament, names):
     return [tournament.submit(name, "print('private source')", None) for name in names]
 
 
-def join(tournament):
-    tournament.worker.join(timeout=10)
-    assert not tournament.worker.is_alive()
-    assert tournament.store.get("job")["status"] == "finished", tournament.store.get("job")
+def join(tournament, *, require_success=True):
+    app = SimpleNamespace(state=SimpleNamespace(tournament=tournament, store=tournament.store))
+    wait_tournament(app, require_success=require_success)
 
 
 def test_public_sandbox_cache_and_fresh_job_preflight(tournament):
@@ -191,7 +193,7 @@ def test_worker_failure_is_publicly_safe_and_retry_uses_snapshot(tournament):
 
     tournament.race_fn = broken
     tournament.start_qualification()
-    tournament.worker.join(5)
+    join(tournament, require_success=False)
     assert tournament.store.get("job")["status"] == "failed"
     assert "PRIVATE" not in json.dumps(tournament.store.get("job"))
     assert tournament.store.read_replay(tournament.store.get("active_replay_id"))["status"] == "failed"

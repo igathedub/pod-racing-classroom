@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from tournament_wait import wait_tournament
 from test_tournament import fake_race, sandbox_ready, tracks_fn
 
 # Keep uvicorn's required module-level app from creating a real classroom in tests.
@@ -31,7 +32,7 @@ def api(tmp_path, monkeypatch):
         yield client, app
         worker = app.state.tournament.worker
         if worker:
-            worker.join(10)
+            wait_tournament(app, require_success=False)
             assert not worker.is_alive()
 
 
@@ -46,9 +47,7 @@ def submit(client, alias="Pilot", code=CODE, **extra):
 
 
 def wait(app):
-    app.state.tournament.worker.join(10)
-    assert not app.state.tournament.worker.is_alive()
-    assert app.state.store.get("job")["status"] == "finished", app.state.store.get("job")
+    wait_tournament(app)
 
 
 def test_initial_closed_auth_and_public_boundaries(api):

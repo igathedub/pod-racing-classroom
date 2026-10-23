@@ -3,6 +3,7 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from tournament_wait import wait_tournament
 
 from test_api import TOKEN, create_app
 from test_tournament import fake_race, sandbox_ready, tracks_fn
@@ -55,25 +56,6 @@ def test_rules_explain_final_sum_not_qualification_or_wall_clock(tmp_path, monke
         assert 'without collisions' in rules['final']
 
 
-def _wait_for_real_series(app, *, monotonic):
-    # Keep the existing 10-second no-progress bound, not a machine-speed
-    # assertion over all 18 real qualification races and their durable writes.
-    worker = app.state.tournament.worker
-    completed = app.state.store.get('job')['completed']
-    deadline = monotonic() + 10
-    while worker.is_alive():
-        remaining = deadline - monotonic()
-        assert remaining > 0, f"Tournament made no progress for 10 seconds: {app.state.store.get('job')}"
-        worker.join(min(1.0, remaining))
-        job = app.state.store.get('job')
-        if job['completed'] > completed:
-            completed = job['completed']
-            deadline = monotonic() + 10
-    job = app.state.store.get('job')
-    assert job['status'] == 'finished', job
-    assert job['completed'] == job['total'], job
-
-
 def test_real_series_wait_allows_progress_beyond_one_join_budget():
     from types import SimpleNamespace
 
@@ -94,7 +76,7 @@ def test_real_series_wait_allows_progress_beyond_one_join_budget():
     app = SimpleNamespace(state=SimpleNamespace(
         tournament=SimpleNamespace(worker=Worker()),
         store=SimpleNamespace(get=lambda key: dict(job))))
-    _wait_for_real_series(app, monotonic=lambda: elapsed)
+    wait_tournament(app, monotonic=lambda: elapsed)
     assert elapsed == 18.0
     assert job['completed'] == job['total']
 
@@ -119,7 +101,7 @@ def test_real_series_wait_rejects_stalled_worker_with_bounded_joins():
         tournament=SimpleNamespace(worker=Worker()),
         store=SimpleNamespace(get=lambda key: dict(job))))
     with pytest.raises(AssertionError, match='no progress'):
-        _wait_for_real_series(app, monotonic=lambda: elapsed)
+        wait_tournament(app, monotonic=lambda: elapsed)
     assert elapsed == 10.0
     assert joins == [1.0] * 10
 
@@ -135,7 +117,7 @@ def test_real_series_wait_rejects_unsuccessful_terminal_job(job):
         tournament=SimpleNamespace(worker=SimpleNamespace(is_alive=lambda: False)),
         store=SimpleNamespace(get=lambda key: dict(job))))
     with pytest.raises(AssertionError):
-        _wait_for_real_series(app, monotonic=lambda: 0.0)
+        wait_tournament(app, monotonic=lambda: 0.0)
 
 
 @pytest.mark.parametrize('base', ['', '/backup'])
@@ -166,12 +148,12 @@ def test_real_referee_final_series_through_http(tmp_path, monkeypatch, base, pro
                 'alias': 'Synthetic ' + str(index), 'code': 'print("never executed on host")'}).status_code == 200
         original_sources = app.state.store.submissions(private=True)
         assert client.post(base + '/api/admin/qualify', headers=AUTH, json={}).status_code == 202
-        _wait_for_real_series(app, monotonic=monotonic)
+        wait_tournament(app, monotonic=monotonic)
         qualified = client.get(base + '/api/state').json()
         assert qualified['job']['completed'] == qualified['job']['total'] == 18
         assert len(qualified['final_tracks']) == 3
         assert client.post(base + '/api/admin/final', headers=AUTH, json={}).status_code == 202
-        _wait_for_real_series(app, monotonic=monotonic)
+        wait_tournament(app, monotonic=monotonic)
         state = client.get(base + '/api/state').json()
         assert state['job']['completed'] == state['job']['total'] == 3
         assert len(state['replays']) == 21

@@ -38,7 +38,7 @@ def test_qualification_freezes_one_six_track_collection_and_retry_preserves_it(c
     competition.tracks_fn = collection
     competition.race_fn = broken
     assert competition.start_qualification()['total'] == 6
-    competition.worker.join(5)
+    join(competition, require_success=False)
     store = competition.store
     assert store.get('job')['status'] == 'failed'
     assert collections == [{'seed': 2026, 'count': 6}]
@@ -266,7 +266,7 @@ def test_final_retry_is_fresh_series_with_frozen_sources_tracks_and_historical_a
 
     competition.race_fn = partial
     competition.start_final()
-    competition.worker.join(5)
+    join(competition, require_success=False)
     assert store.get('job')['status'] == 'failed'
     assert store.get('job')['completed'] == 1
     old_ids = store.get('final_replay_ids')
@@ -329,7 +329,7 @@ def test_partial_final_replay_bounds_fail_secret_safely(competition, mode):
 
     competition.race_fn = oversized
     competition.start_final()
-    competition.worker.join(5)
+    join(competition, require_success=False)
     assert store.get('job')['status'] == 'failed' and store.get('job')['completed'] == 1
     assert store.get('champion') is None
     assert all(row['total_time'] is None for row in store.get('final_leaderboard'))
@@ -384,7 +384,7 @@ def test_final_retains_attempt_metadata_without_publishing_an_unwritable_archive
 
     monkeypatch.setattr(store, 'write_replay', fail_initial)
     competition.start_final()
-    competition.worker.join(5)
+    join(competition, require_success=False)
     assert not competition.worker.is_alive()
     assert store.get('job')['status'] == 'failed'
     assert store.get('job')['completed'] == 0
@@ -422,7 +422,7 @@ def test_initial_archive_error_retains_failed_body_without_publishing_attempt(co
 
     monkeypatch.setattr(store, 'write_replay', fail_once)
     competition.start_final()
-    competition.worker.join(5)
+    join(competition, require_success=False)
     assert not competition.worker.is_alive()
     assert store.get('job')['status'] == 'failed'
     assert store.get('job')['completed'] == series_index - 1

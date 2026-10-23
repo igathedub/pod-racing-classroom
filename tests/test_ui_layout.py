@@ -3,6 +3,7 @@ from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import sync_playwright
+from tournament_wait import wait_tournament
 
 from test_api import api, open_session  # noqa: F401 -- imports the isolated pytest fixture
 
@@ -104,7 +105,7 @@ def test_replay_controls_and_results_return_when_races_exist(ui_page, view):
     for alias in ("Pilot A", "Pilot B"):
         assert client.post("/api/submissions", json={"alias": alias, "code": "print(1)"}).status_code == 200
     app.state.tournament.start_qualification()
-    app.state.tournament.worker.join(10)
+    wait_tournament(app)
     assert app.state.store.get("job")["status"] == "finished"
     page.emulate_media(reduced_motion="reduce")
     page.goto(f"http://classroom.test{view}?lang=de")
@@ -156,7 +157,7 @@ def test_twenty_results_do_not_stretch_the_student_editor(ui_page):
     for index in range(20):
         assert client.post("/api/submissions", json={"alias": f"Pilot {index:02d}", "code": "print(1)"}).status_code == 200
     app.state.tournament.start_qualification()
-    app.state.tournament.worker.join(10)
+    wait_tournament(app)
     page.goto("http://classroom.test/?lang=de")
     page.wait_for_function("() => document.body.dataset.hasReplay === 'true'")
     assert page.locator("#rankings tbody tr").count() == 20
