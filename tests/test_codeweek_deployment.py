@@ -54,6 +54,14 @@ def test_backup_cloudflare_inventory_has_no_credentials():
     assert '217.160.0.94' not in json.dumps(data)
 
 
+def test_compose_contracts_run_in_the_docker_ci_job():
+    # A CLI on PATH must not opt hosted jobs into the dedicated Docker contracts.
+    for contract in (test_effective_profiles_have_only_loopback_gate_port,
+                     test_release_profiles_forward_input_protocol_without_silent_fallback):
+        assert 'docker' in {mark.name for mark in contract.pytestmark}
+
+
+@pytest.mark.docker
 @pytest.mark.skipif(not __import__('shutil').which('docker'), reason='Compose CLI unavailable')
 def test_effective_profiles_have_only_loopback_gate_port(tmp_path):
     # Config parsing only, never connects to any daemon or changes external state.
@@ -77,6 +85,7 @@ def test_effective_profiles_have_only_loopback_gate_port(tmp_path):
         assert config['volumes']['classroom-data']['name']=='synthetic-external-volume'
 
 
+@pytest.mark.docker
 @pytest.mark.skipif(not __import__('shutil').which('docker'), reason='Compose CLI unavailable')
 @pytest.mark.parametrize('role', ['primary', 'backup'])
 @pytest.mark.parametrize('requested', [None, 'checkpoint-only', 'legacy', '', 'invalid-mode'])

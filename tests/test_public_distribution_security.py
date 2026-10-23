@@ -75,9 +75,39 @@ esac
     assert not (bundle/'OWNED').exists()
 
 
+@pytest.fixture
+def incompatible_windows_modules(tmp_path):
+    from scripts.classroom_backup import private_mkdir
+
+    modules = tmp_path / 'core-only-modules'
+    private_mkdir(modules)
+    module = modules / 'Microsoft.PowerShell.Security'
+    module.mkdir()
+    # Trusted synthetic manifest only: reproduces Core/Windows module mismatch
+    # without PowerShell 7, network access, or executing any foreign module code.
+    (module / 'Microsoft.PowerShell.Security.psd1').write_text(
+        "@{RootModule='Missing.CoreOnly.dll';ModuleVersion='99.0';"
+        "GUID='bbff8ad2-6bae-4a03-9b1f-b2b66b57faf2';"
+        "CmdletsToExport=@('Get-Acl','Set-Acl')}", encoding='utf-8')
+    return modules
+
+
+def windows_launcher_command(bundle, action, entrypoint):
+    if entrypoint == 'cmd':
+        return ['cmd.exe', '/d', '/c', str(bundle / (action.title() + '.cmd'))]
+    return ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+            str(bundle / 'classroom.ps1'), action]
+
+
 @pytest.mark.skipif(os.name != 'nt', reason='Windows PowerShell launcher')
-def test_windows_launcher_preserves_project_and_refuses_shell_text(tmp_path):
-    shutil.copytree(ROOT/'distribution', tmp_path/'bundle')
+@pytest.mark.parametrize('entrypoint', ['script', 'cmd'])
+@pytest.mark.parametrize('saved_project', [False, True])
+def test_windows_launcher_preserves_project_and_refuses_shell_text(
+        tmp_path, incompatible_windows_modules, entrypoint, saved_project):
+    from scripts.classroom_backup import private_mkdir, privatize, require_private
+
+    private_mkdir(tmp_path/'bundle')
+    shutil.copytree(ROOT/'distribution', tmp_path/'bundle', dirs_exist_ok=True)
     bindir = tmp_path/'bin'
     bindir.mkdir()
     (bindir/'docker.cmd').write_text('''@echo off
@@ -89,16 +119,199 @@ if "%~3"=="info" if "%~5"=="{{.OperatingSystem}}" echo Docker Desktop
 exit /b 0
 ''')
     calls = tmp_path/'calls'
-    env = dict(os.environ, PATH=str(bindir)+os.pathsep+os.environ['PATH'], CALLS=str(calls))
+    env = dict(os.environ, PATH=str(bindir)+os.pathsep+os.environ['PATH'], CALLS=str(calls),
+               PSModulePath=str(incompatible_windows_modules), POD_NO_PAUSE='1')
     bundle = tmp_path/'bundle'
+    # Prove that this environment actually breaks native module autoloading.
+    probe = subprocess.run(['powershell.exe', '-NoProfile', '-Command',
+                            "$ErrorActionPreference='Stop'; Get-Acl -LiteralPath ."],
+                           cwd=bundle, env=env, capture_output=True, text=True, errors='replace')
+    assert probe.returncode != 0
+    assert 'Microsoft.PowerShell.Security' in probe.stderr
     (bundle/'.env').write_text('COMPOSE_PROJECT_NAME=production\nPOD_RELEASE_SOCKET=evil\n')
+    project = 'pod-public-' + 'a' * 32 if saved_project else None
+    state = bundle/'.classroom-project'
+    if saved_project:
+        state.write_text(project + '\n')
+    privatize(bundle)
     for action in ('start','stop','start'):
-        subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',
-                        str(bundle/'classroom.ps1'),action], cwd=bundle, env=env, check=True)
-    project = (bundle/'.classroom-project').read_text().strip()
+        result = subprocess.run(windows_launcher_command(bundle, action, entrypoint),
+                                cwd=bundle, env=env, capture_output=True, text=True, errors='replace')
+        assert result.returncode == 0, result.stdout + result.stderr
+        if project is None:
+            project = state.read_text().strip()
+            assert project.startswith('pod-public-')
+        assert state.read_text().strip() == project
+        require_private(state)
+        require_private(bundle/'teacher-private.log')
+    assert env['PSModulePath'] == str(incompatible_windows_modules)
     assert calls.read_text().count('--project-name '+project) == 7
-    (bundle/'.classroom-project').write_text('pod-public-foo & echo OWNED > OWNED')
-    result = subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',
-                             str(bundle/'classroom.ps1'),'start'], cwd=bundle, env=env)
+    state.write_text('pod-public-foo & echo OWNED > OWNED')
+    before = calls.read_text()
+    result = subprocess.run(windows_launcher_command(bundle, 'start', entrypoint),
+                            cwd=bundle, env=env, capture_output=True, text=True, errors='replace')
     assert result.returncode != 0
+    assert 'Invalid project file' in result.stderr
+    assert all('compose' not in line or line.endswith('compose version')
+               for line in calls.read_text()[len(before):].splitlines())
     assert not (bundle/'OWNED').exists()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows PowerShell launcher')
+@pytest.mark.parametrize('entrypoint', ['script', 'cmd'])
+@pytest.mark.parametrize('action', ['start', 'stop'])
+def test_windows_launcher_rejects_remote_context_before_daemon_access(
+        tmp_path, incompatible_windows_modules, entrypoint, action):
+    shutil.copytree(ROOT/'distribution', tmp_path/'bundle')
+    bundle = tmp_path/'bundle'
+    bindir = tmp_path/'bin'
+    bindir.mkdir()
+    (bindir/'docker.cmd').write_text('''@echo off
+>>"%CALLS%" echo %*
+if "%~1"=="context" if "%~2"=="show" echo remote-test
+if "%~1"=="context" if "%~2"=="inspect" echo tcp://remote.invalid:2375
+exit /b 0
+''')
+    calls = tmp_path/'calls'
+    env = dict(os.environ, PATH=str(bindir)+os.pathsep+os.environ['PATH'], CALLS=str(calls),
+               PSModulePath=str(incompatible_windows_modules), POD_NO_PAUSE='1',
+               DOCKER_HOST='tcp://untrusted.invalid:2375', DOCKER_CONTEXT='untrusted')
+    state = bundle/'.classroom-project'
+    state.write_text('pod-public-' + 'b' * 32 + '\n')
+    teacher = bundle/'teacher-private.log'
+    teacher.write_text('synthetic-private-sentinel\n')
+    result = subprocess.run(windows_launcher_command(bundle, action, entrypoint),
+                            cwd=bundle, env=env, capture_output=True, text=True, errors='replace')
+    assert result.returncode != 0
+    assert 'Only local Docker Desktop/Unix contexts are supported' in result.stderr
+    assert calls.read_text().splitlines() == [
+        'context show', 'context inspect remote-test --format {{.Endpoints.docker.Host}}']
+    assert state.read_text() == 'pod-public-' + 'b' * 32 + '\n'
+    assert teacher.read_text() == 'synthetic-private-sentinel\n'
+
+
+@pytest.fixture
+def windows_private_launcher(tmp_path):
+    from scripts.classroom_backup import private_mkdir
+
+    bundle = tmp_path/'bundle'
+    private_mkdir(bundle)
+    shutil.copytree(ROOT/'distribution', bundle, dirs_exist_ok=True)
+    bindir = tmp_path/'bin'
+    bindir.mkdir()
+    (bindir/'docker.cmd').write_text('''@echo off
+>>"%CALLS%" echo %*
+if "%~1"=="context" if "%~2"=="show" echo desktop-linux
+if "%~1"=="context" if "%~2"=="inspect" echo npipe:////./pipe/dockerDesktopLinuxEngine
+if "%~3"=="info" if "%~5"=="{{.OSType}}" echo linux
+if "%~3"=="info" if "%~5"=="{{.OperatingSystem}}" echo Docker Desktop
+exit /b 0
+''')
+    env = dict(os.environ, PATH=str(bindir)+os.pathsep+os.environ['PATH'],
+               CALLS=str(tmp_path/'calls'), POD_NO_PAUSE='1', LAUNCHER=str(bundle/'classroom.ps1'))
+    return bundle, env
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows PowerShell launcher')
+@pytest.mark.parametrize('saved_project', [False, True])
+def test_windows_launcher_explicit_private_descriptor(windows_private_launcher, saved_project):
+    from scripts.classroom_backup import require_private
+
+    bundle, env = windows_private_launcher
+    state = bundle/'.classroom-project'
+    if saved_project:
+        state.write_text('pod-public-' + 'c' * 32 + '\n')
+    before = state.read_bytes() if saved_project else None
+    # Inspect the real native descriptor BEFORE Set-Acl applies it. A normal
+    # unelevated token otherwise hides an omitted owner via its default owner.
+    # No token/privilege changes and no descriptor or principal diagnostics.
+    wrapper = r'''
+$ErrorActionPreference = 'Stop'
+$env:PSModulePath = "$PSHOME\Modules"
+Import-Module Microsoft.PowerShell.Security
+function global:Set-Acl {
+    param($LiteralPath, $AclObject)
+    $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+    $owner = $AclObject.GetOwner([System.Security.Principal.SecurityIdentifier])
+    if ($null -eq $owner -or $owner -ne $user) { throw 'Explicit current-user owner missing' }
+    $rules = @($AclObject.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]))
+    if (-not $AclObject.AreAccessRulesProtected -or $rules.Count -ne 1 -or
+        $rules[0].IdentityReference -ne $user -or $rules[0].AccessControlType -ne 'Allow' -or
+        $rules[0].FileSystemRights -ne 'FullControl') { throw 'Explicit private DACL missing' }
+    Microsoft.PowerShell.Security\Set-Acl -LiteralPath $LiteralPath -AclObject $AclObject
+    [System.IO.File]::AppendAllText($env:ACL_CALLS, [System.IO.Path]::GetFileName($LiteralPath) + "`n")
+}
+& $env:LAUNCHER start
+'''
+    checked = bundle.parent/'acl-calls'
+    env['ACL_CALLS'] = str(checked)
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                             '-Command', wrapper], cwd=bundle, env=env,
+                            capture_output=True, text=True, errors='replace', timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert set(checked.read_text().splitlines()) == {'.classroom-project', 'teacher-private.log'}
+    if saved_project:
+        assert state.read_bytes() == before
+    require_private(state)
+    require_private(bundle/'teacher-private.log')
+
+
+def windows_acl_fingerprint(path):
+    env = dict(os.environ, ACL_TARGET=str(path))
+    script = r'''
+$ErrorActionPreference = 'Stop'
+$env:PSModulePath = "$PSHOME\Modules"
+$bytes = (Get-Acl -LiteralPath $env:ACL_TARGET).GetSecurityDescriptorBinaryForm()
+$hash = [System.Security.Cryptography.SHA256]::Create()
+[Convert]::ToBase64String($hash.ComputeHash($bytes))
+'''
+    return subprocess.run(['powershell.exe', '-NoProfile', '-Command', script], env=env,
+                          capture_output=True, text=True, errors='replace', check=True, timeout=10).stdout.strip()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows PowerShell launcher')
+@pytest.mark.parametrize('entrypoint', ['script', 'cmd'])
+@pytest.mark.parametrize('name', ['.classroom-project', 'teacher-private.log'])
+@pytest.mark.parametrize('link_kind', ['junction', 'symlink'])
+def test_windows_launcher_rejects_private_file_reparse_before_mutation(
+        windows_private_launcher, entrypoint, name, link_kind):
+    bundle, env = windows_private_launcher
+    state = bundle/'.classroom-project'
+    if name != '.classroom-project':
+        state.write_text('pod-public-' + 'd' * 32 + '\n')
+    # Every target is another fixture, never a user's file. Junctions require
+    # no symlink privilege, so the reparse regression cannot silently all skip.
+    outside = bundle.parent/'outside'
+    outside.mkdir()
+    target = outside/'sentinel'
+    target.write_text('pod-public-' + 'e' * 32 + '\n')
+    link = bundle/name
+    if link_kind == 'junction':
+        subprocess.run(['cmd.exe', '/d', '/c', 'mklink', '/J', str(link), str(outside)],
+                       capture_output=True, text=True, errors='replace', check=True, timeout=10)
+        acl_target = outside
+    else:
+        try:
+            link.symlink_to(target)
+        except OSError as exc:
+            if exc.winerror == 1314:
+                pytest.skip('File symlink privilege unavailable; junction coverage remains mandatory')
+            raise
+        acl_target = target
+    content = target.read_bytes()
+    acl = windows_acl_fingerprint(acl_target)
+    try:
+        result = subprocess.run(windows_launcher_command(bundle, 'start', entrypoint),
+                                cwd=bundle, env=env, capture_output=True, text=True,
+                                errors='replace', timeout=20)
+        assert result.returncode != 0
+        assert 'Reparse points are not allowed for private files' in result.stderr
+        assert target.read_bytes() == content
+        assert windows_acl_fingerprint(acl_target) == acl
+        assert sorted(p.name for p in outside.iterdir()) == ['sentinel']
+    finally:
+        # Do not leave junction traversal to recursive fixture cleanup.
+        if link_kind == 'junction':
+            link.rmdir()
+        else:
+            link.unlink()

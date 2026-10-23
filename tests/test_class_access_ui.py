@@ -4,6 +4,7 @@ import pytest
 from urllib.parse import urlsplit
 
 from fastapi.testclient import TestClient
+from tournament_wait import wait_tournament
 from playwright.sync_api import sync_playwright
 
 from test_api import AUTH, TOKEN
@@ -106,7 +107,7 @@ def test_chromium_archival_replays_return_after_rejoin(tmp_path, monkeypatch, la
         for alias in ('Pilot A', 'Pilot B'):
             assert client.post('/api/submissions', json={'alias': alias, 'code': 'print(1)'}, headers=AUTH).status_code == 200
         app.state.tournament.start_qualification()
-        app.state.tournament.worker.join(10)
+        wait_tournament(app)
         assert not app.state.tournament.worker.is_alive()
         assert app.state.store.get('job')['status'] == 'finished'
         stored = app.state.store.replays()

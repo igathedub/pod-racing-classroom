@@ -5,6 +5,10 @@ on:
       - '.github/workflows/windows-acl-probe.yml'
       - 'scripts/ci_windows_acl_probe.py'
       - 'tests/test_ci_windows_acl_probe.py'
+      - 'distribution/classroom.ps1'
+      - 'distribution/Start.cmd'
+      - 'distribution/Stop.cmd'
+      - 'tests/test_public_distribution_security.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,3 +31,7 @@ jobs:
         env:
           PYTHONUTF8: '1'
         run: uv run --frozen python scripts/ci_windows_acl_probe.py
+      - name: Check native launcher privacy with synthetic Docker only
+        env:
+          PYTHONUTF8: '1'
+        run: uv run --frozen python -m pytest tests/test_public_distribution_security.py -k windows -q

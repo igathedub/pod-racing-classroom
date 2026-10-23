@@ -3,6 +3,7 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from tournament_wait import wait_tournament
 
 from test_api import TOKEN, create_app
 from test_tournament import fake_race, sandbox_ready, tracks_fn
@@ -55,13 +56,78 @@ def test_rules_explain_final_sum_not_qualification_or_wall_clock(tmp_path, monke
         assert 'without collisions' in rules['final']
 
 
+def test_real_series_wait_allows_progress_beyond_one_join_budget():
+    from types import SimpleNamespace
+
+    elapsed = 0.0
+    job = {'status': 'running', 'completed': 0, 'total': 3}
+
+    class Worker:
+        def join(self, timeout):
+            nonlocal elapsed
+            elapsed += timeout
+            job['completed'] = min(3, int(elapsed // 6))
+            if job['completed'] == 3:
+                job['status'] = 'finished'
+
+        def is_alive(self):
+            return job['status'] == 'running'
+
+    app = SimpleNamespace(state=SimpleNamespace(
+        tournament=SimpleNamespace(worker=Worker()),
+        store=SimpleNamespace(get=lambda key: dict(job))))
+    wait_tournament(app, monotonic=lambda: elapsed)
+    assert elapsed == 18.0
+    assert job['completed'] == job['total']
+
+
+def test_real_series_wait_rejects_stalled_worker_with_bounded_joins():
+    from types import SimpleNamespace
+
+    elapsed = 0.0
+    joins = []
+    job = {'status': 'running', 'completed': 1, 'total': 18}
+
+    class Worker:
+        def join(self, timeout):
+            nonlocal elapsed
+            joins.append(timeout)
+            elapsed += timeout
+
+        def is_alive(self):
+            return True
+
+    app = SimpleNamespace(state=SimpleNamespace(
+        tournament=SimpleNamespace(worker=Worker()),
+        store=SimpleNamespace(get=lambda key: dict(job))))
+    with pytest.raises(AssertionError, match='no progress'):
+        wait_tournament(app, monotonic=lambda: elapsed)
+    assert elapsed == 10.0
+    assert joins == [1.0] * 10
+
+
+@pytest.mark.parametrize('job', [
+    {'status': 'failed', 'completed': 2, 'total': 3},
+    {'status': 'finished', 'completed': 2, 'total': 3},
+])
+def test_real_series_wait_rejects_unsuccessful_terminal_job(job):
+    from types import SimpleNamespace
+
+    app = SimpleNamespace(state=SimpleNamespace(
+        tournament=SimpleNamespace(worker=SimpleNamespace(is_alive=lambda: False)),
+        store=SimpleNamespace(get=lambda key: dict(job))))
+    with pytest.raises(AssertionError):
+        wait_tournament(app, monotonic=lambda: 0.0)
+
+
 @pytest.mark.parametrize('base', ['', '/backup'])
 @pytest.mark.parametrize('protocol', ['legacy', 'checkpoint-only'])
 def test_real_referee_final_series_through_http(tmp_path, monkeypatch, base, protocol):
     from arena.bots import ReferenceRunner
     from arena.engine import make_tracks, run_race
     from scripts.deployment_probe import verify_final_series
-    from test_api import AUTH, wait
+    from test_api import AUTH
+    from time import monotonic
 
     monkeypatch.setenv('POD_ADMIN_TOKEN', TOKEN)
     monkeypatch.setenv('POD_BASE_PATH', base)
@@ -82,12 +148,12 @@ def test_real_referee_final_series_through_http(tmp_path, monkeypatch, base, pro
                 'alias': 'Synthetic ' + str(index), 'code': 'print("never executed on host")'}).status_code == 200
         original_sources = app.state.store.submissions(private=True)
         assert client.post(base + '/api/admin/qualify', headers=AUTH, json={}).status_code == 202
-        wait(app)
+        wait_tournament(app, monotonic=monotonic)
         qualified = client.get(base + '/api/state').json()
         assert qualified['job']['completed'] == qualified['job']['total'] == 18
         assert len(qualified['final_tracks']) == 3
         assert client.post(base + '/api/admin/final', headers=AUTH, json={}).status_code == 202
-        wait(app)
+        wait_tournament(app, monotonic=monotonic)
         state = client.get(base + '/api/state').json()
         assert state['job']['completed'] == state['job']['total'] == 3
         assert len(state['replays']) == 21

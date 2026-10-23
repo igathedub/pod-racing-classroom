@@ -2,6 +2,7 @@
 import time
 import pytest
 from fastapi.testclient import TestClient
+from tournament_wait import wait_tournament
 from test_api import create_app, AUTH, TOKEN
 from test_tournament import fake_race, tracks_fn, sandbox_ready
 
@@ -215,7 +216,7 @@ def test_access_changes_preserve_finished_replays_and_frozen_state(tmp_path, mon
         for alias in ('Pilot A', 'Pilot B'):
             assert client.post('/api/submissions', json={'alias': alias, 'code': 'print(1)'}, headers=AUTH).status_code == 200
         app.state.tournament.start_qualification()
-        app.state.tournament.worker.join(10)
+        wait_tournament(app)
         assert app.state.store.get('job')['status'] == 'finished'
         def snapshot():
             with app.state.store.connection() as db:

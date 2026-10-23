@@ -85,6 +85,25 @@ def test_probe_report_rejects_non_numeric_error(bad):
         public_report({'method': 'set_acl', 'result': 'failed', 'hresult': bad})
 
 
+@pytest.mark.parametrize('key', ['PSModulePath', 'PSMODULEPATH', 'psmodulepath'])
+def test_probe_isolates_windows_powershell_module_discovery(key, monkeypatch, tmp_path, capsys):
+    from scripts import ci_windows_acl_probe as probe
+    parent_env = {'TMPDIR': str(tmp_path), key: 'PRIVATE_CORE_MODULE_CANARY'}
+    monkeypatch.setattr(probe, 'os', SimpleNamespace(name='nt', environ=parent_env))
+
+    def run(*args, **kwargs):
+        assert all(k.casefold() != 'psmodulepath' for k in kwargs['env'])
+        assert kwargs['env']['TMPDIR'] == str(tmp_path)
+        rows = [{'method': m, 'result': 'ok'} for m in sorted(EXPECTED_METHODS)]
+        return SimpleNamespace(returncode=0, stdout=json.dumps(rows), stderr='')
+
+    monkeypatch.setattr(probe.subprocess, 'run', run)
+    probe.main()
+    assert parent_env[key] == 'PRIVATE_CORE_MODULE_CANARY'
+    assert 'PRIVATE_CORE_MODULE_CANARY' not in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == []
+
+
 EXPECTED_METHODS = {'set_acl', 'owner_only_dotnet', 'owner_only_win32', 'owner_and_dacl_win32'}
 
 
@@ -156,6 +175,25 @@ def test_probe_emits_only_complete_filtered_report_after_cleanup(monkeypatch, tm
     assert 'PRIVATE_CANARY' not in captured.out + captured.err
     assert json.loads(captured.out) == [{k: v for k, v in row.items() if k != 'path'} for row in rows]
     assert captured.err == ''
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Requires native Windows ACL APIs')
+@pytest.mark.parametrize('failure_phase', ['setup', 'seed_dacl'])
+def test_probe_reports_native_method_setup_failures(monkeypatch, tmp_path, capsys, failure_phase):
+    from scripts import ci_windows_acl_probe as probe
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    monkeypatch.setenv('TMPDIR', str(tmp_path))
+    marker = 'Add-Type -TypeDefinition' if failure_phase == 'setup' else '$fixtureAcl = Get-Acl'
+    monkeypatch.setattr(probe, 'SCRIPT', probe.SCRIPT.replace(marker, "throw 'PRIVATE_CANARY'; " + marker))
+    assert probe.main() == 0
+    captured = capsys.readouterr()
+    assert 'PRIVATE_CANARY' not in captured.out + captured.err
+    rows = json.loads(captured.out)
+    assert {row['method'] for row in rows} == EXPECTED_METHODS
+    failures = rows if failure_phase == 'setup' else [row for row in rows if row['method'] == 'owner_and_dacl_win32']
+    assert all(row['result'] == 'failed' and row['phase'] == failure_phase for row in failures)
+    assert all(type(row['hresult']) is int for row in failures)
     assert list(tmp_path.iterdir()) == []
 
 
