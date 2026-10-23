@@ -28,7 +28,7 @@ LAYOUTS = {
 
 
 def render_policy(executables):
-    profiles = ["# Generated for exact Playwright executables on an ephemeral CI runner.\n"]
+    profiles = ["# Generated for exact Playwright executables on an ephemeral CI runner.\nabi <abi/4.0>,\n"]
     for index, executable in enumerate(executables):
         path = executable.as_posix()
         # Reject AppArmor glob/variable/quote injection rather than escaping it.

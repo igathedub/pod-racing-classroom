@@ -25,6 +25,7 @@ class PolicyTests(unittest.TestCase):
         paths = [root / "chromium-123/chrome-linux64/chrome",
                  root / "chromium_headless_shell-123/chrome-headless-shell-linux64/chrome-headless-shell"]
         rendered = policy.render_policy(paths)
+        self.assertIn("abi <abi/4.0>,\n", rendered)
         for path in paths:
             self.assertIn(f'"{path.as_posix()}" flags=(unconfined)', rendered)
         self.assertEqual(rendered.count("  userns,"), 2)
