@@ -2,7 +2,7 @@
 
 Use an agent with local filesystem/terminal access only if you trust it. Docker controls powerful host facilities. These prompts authorize a **new isolated local installation**, not changes to a running classroom. Review commands before allowing them. Never paste the teacher key into the conversation.
 
-**Release status:** v1.0.0 is the intended first stable release, not a claim that it is already published. The prompts explicitly verify availability and pin it only once available. See the [English](../README.md) / [German](../README.de.md) manual setup.
+**Release status:** [stable v1.0.0 is published](https://github.com/igathedub/pod-racing-classroom/releases/tag/v1.0.0), with a pull-only runtime ZIP and SHA256SUMS. Verify the exact assets before running; availability is not a platform acceptance guarantee. See [current evidence](../VERIFICATION.md). See the [English](../README.md) / [German](../README.de.md) manual setup.
 
 ## Copyable English prompt
 
@@ -16,17 +16,17 @@ Do not modify, stop, reset or inspect secrets from any existing classroom.
 Docker with Linux containers is required; do not install host Python, Git or Node
 for the prebuilt path. If Docker installation/start needs privileges, ask me.
 
-Check GitHub Releases for published stable v1.0.0 and its actual asset named
-Pod-Racing-Classroom-v1.0.0.zip. If published, download that version, not latest
-or GitHub's automatic source archive. Check any published checksum; if none is
-available, state that. Inspect the package before running Start.cmd (Windows),
+Use published stable v1.0.0 and its exact asset named
+Pod-Racing-Classroom-v1.0.0.zip from GitHub Releases, not latest or GitHub's
+automatic source archive. Download SHA256SUMS and verify the ZIP checksum;
+if an asset/checksum is missing or mismatched, stop and report it.
+Inspect the package before running Start.cmd (Windows),
 Start.command or sh Start.sh (macOS), or sh Start.sh (Linux). Require immutable
 app and bot @sha256 digests resolved from published v1.0.0 multiarch image tags,
 not :1.0.0 or latest. Verify pull success; do not invent available assets/images.
-If v1.0.0 is unavailable, explain that before proceeding. The explicit source
-fallback is commit 804ac8804dff8b29d0e1ccc4364bd29d0b46fdf2, not a stable release:
-use a source archive and Docker-start.cmd / sh Docker-start.sh. Ask me to approve
-this fallback rather than silently replacing a release with an arbitrary branch.
+Do not silently fall back to source or an arbitrary branch. If I explicitly
+approve source installation, use the v1.0.0 tag and docs/source-installation.md,
+with Docker-start.cmd / sh Docker-start.sh; this builds locally.
 
 Use a new dedicated folder and new data volume. For the ZIP, let Start generate
 and save the unique project name in .classroom-project; retain it. The ZIP ignores
@@ -76,17 +76,17 @@ Schlüssel auslesen. Docker mit Linux-Containern ist Voraussetzung. Für das fer
 Paket kein Host-Python, Git oder Node installieren. Bei benötigten Adminrechten
 für Installation/Start von Docker nachfragen.
 
-Prüfe, ob das stabile Release v1.0.0 samt tatsächlichem Asset
-Pod-Racing-Classroom-v1.0.0.zip veröffentlicht ist. Nur diese Version laden,
-nicht latest oder GitHubs automatisches Quellcodearchiv. Veröffentlichte Prüfsumme
-prüfen; falls keine existiert, das offen sagen. Paket vor Start.cmd (Windows),
+Verwende das veröffentlichte stabile Release v1.0.0 samt Asset
+Pod-Racing-Classroom-v1.0.0.zip, nicht latest oder GitHubs automatisches
+Quellcodearchiv. SHA256SUMS laden und ZIP-Prüfsumme vergleichen; bei fehlendem
+Asset/Prüfsumme oder Abweichung stoppen und berichten. Paket vor Start.cmd (Windows),
 Start.command oder sh Start.sh (macOS) beziehungsweise sh Start.sh (Linux) prüfen.
 Unveränderliche App-/Bot-@sha256-Digests aus veröffentlichten v1.0.0-Multiarch-Tags
 verlangen, nicht :1.0.0 oder latest. Echten Download prüfen, nichts erfinden.
-Falls v1.0.0 fehlt: ausdrücklich erklären. Als Quellcode-Fallback ist Commit
-804ac8804dff8b29d0e1ccc4364bd29d0b46fdf2 vorgesehen, kein stabiles Release.
-Dafür nach meiner Zustimmung Quellcodearchiv und Docker-start.cmd beziehungsweise
-sh Docker-start.sh verwenden, nicht stillschweigend einen beliebigen Branch.
+Nicht stillschweigend auf Quellcode oder einen beliebigen Branch ausweichen.
+Nur nach ausdrücklicher Zustimmung den Tag v1.0.0 gemäß
+docs/source-installation.md mit Docker-start.cmd beziehungsweise
+sh Docker-start.sh lokal bauen.
 
 Eigenen neuen Ordner und neues Datenvolume verwenden. Beim ZIP erzeugt Start den
 eindeutigen Projektnamen in .classroom-project; behalten. ZIP ignoriert vorhandene

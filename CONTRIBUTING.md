@@ -9,6 +9,8 @@ Thanks for helping make Python racing lessons easier to run. This public MIT app
 - Discuss larger protocol, scoring, storage or deployment changes before implementing them. Keep pull requests focused; describe behavior changes and compatibility/data risks.
 - Preserve English/German documentation and UI behavior together. Independent CodinGame inspiration is not official compatibility or affiliation. Keep the MIT license and upstream notices.
 
+For the user-facing v1.0.0 install use the [release quickstart](README.md), not development tooling. Keep current evidence in [VERIFICATION.md](VERIFICATION.md); retain superseded results under [docs/history](docs/history/original-verification.md) with their original scope. The [documentation index](docs/README.md) separates user, maintainer and operator paths.
+
 ## Development checks
 
 For trusted development tooling, install Python 3.11+ and uv. From your development checkout:
