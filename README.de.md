@@ -28,7 +28,7 @@ In dieser **neuen leeren Demo-Installation** über die Lehrkraftansicht sechs Be
 1. Unter `/teacher` die Programmierphase öffnen: **120 Minuten** voreingestellt, **1–1440 ganze Minuten** möglich. „Restzeit setzen“ zählt ab dem Klick; Einladungsgültigkeit ist getrennt.
 2. Lernende wählen einen Alias und nutzen **„Deinen Bot abgeben“** für eingefügten oder hochgeladenen Python-Code. Der private Besitzschlüssel desselben Browsers erlaubt Änderungen bis zur Frist. Quellcode zusätzlich speichern; Besitzschlüssel und Lehrkraft-Schlüssel sind verschieden. Private Testläufe gehen nicht in den Wettbewerb ein.
 3. Abgabe schließen und Qualifikation starten; Quellcodeversionen werden eingefroren. Bis zu **100 Abgaben**, nicht 100 gleichzeitig fahrende Pods.
-4. Finale starten: die besten **bis zu fünf** zugelassenen Bots, mindestens zwei nötig. **Finale gesamt** ist von den aktuellen Rennplatzierungen getrennt. Die Replay-Steuerung zeigt **„Automatisch folgen: AN/AUS“**.
+4. Finale starten: die besten **bis zu fünf** zugelassenen Bots, mindestens zwei nötig. **Finale gesamt** ist von den aktuellen Rennplatzierungen getrennt. Die Replay-Steuerung zeigt **„Automatisch folgen: AN“** oder **„Automatisch folgen: AUS“**.
 
 Lehrkraft-Löschung braucht Bestätigung, ist während laufender Rennen/Aufträge gesperrt und entfernt **alle Replays mit diesem Bot**, auch gemeinsame Finalreplays. Keine dauerhafte Personensperre.
 
