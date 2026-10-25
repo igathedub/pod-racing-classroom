@@ -44,7 +44,7 @@ The [isolated Windows PR run 40017512575](https://github.com/igathedub/pod-racin
 
 ## Recorded isolated release acceptance
 
-The release acceptance report records the following **real Docker** checks, using synthetic data and isolated test projects. They are not fabricated fixtures and are not new runs performed merely by editing this documentation:
+The [published release acceptance summary](https://github.com/igathedub/pod-racing-classroom/releases/tag/v1.0.0) records the following **real Docker** checks, using synthetic data and isolated test projects. They are not new runs performed merely by editing this documentation:
 
 - Windows `Start.cmd` / `Stop.cmd`: six demo bots, **18 qualification races and three final races**, **21 replay archives**. Aggregate scores and the overall champion were reconstructed from actual race results. Restart preserved classroom data, the teacher key and access.
 - Private practice left global competition state, database and archives unchanged; unauthorized ownership claims were rejected.
