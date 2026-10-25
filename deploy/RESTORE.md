@@ -1,5 +1,7 @@
 # Primärserver und Reserve: Wiederherstellung und Updates
 
+> **Fortgeschrittenes Betreiberverfahren für Quellcode-/Privatprofile, nicht der Runtime-ZIP-Schnellstart.** Hostnamen und Bestandsangaben unten sind dokumentierte Rollen, keine aktuelle Live-Abnahme. Release-/CI-Nachweise: [VERIFICATION.md](../VERIFICATION.md). Nur einen ausdrücklich genehmigten, exakten Zielstand ausrollen; keine implizite Berechtigung durch Merge oder Release. Die lokalen ZIP-Start/Stop-Helfer benötigen keine Host-Entwicklungswerkzeuge.
+
 Für Feature-Freigabe und versionierten Rollout auf beide Hosts: **[ROLLOUT.md](ROLLOUT.md)**. Die folgenden geschützten Beispielprofile sind keine Anweisung, später bewusst deaktivierte Website-/Klassensperren wieder einzuschalten. Beim Update den tatsächlichen aktuellen Zugangszustand und private Overrides erhalten; historische 401-Abnahmen unten gelten nur für den jeweils geschützten Betriebsmodus.
 
 **GitHub liefert Quellcode und öffentliche Betriebsvorlagen, nicht die Unterrichtsdaten.** Ein vollständiger Wiederaufbau benötigt zusätzlich ein geprüftes, privates Backup des jeweiligen Servers samt Website-/Tunnel-Secrets. Die Reserve ist eine unabhängige Installation, **keine automatische Replikation** des Windows-Datenbestands. Ein Klon allein stellt keine Abgaben, Replays, Lehrkraft- oder Klassenzugänge wieder her.
@@ -65,7 +67,7 @@ POSIX: privates Stammverzeichnis `0700`, Dateien `0600`; keine Links. Beispiel f
 mkdir -m 700 "$HOME/pod-classroom-private"
 ```
 
-Windows: dediziertes Verzeichnis mit deaktivierter Vererbung und Zugriff nur für den aktuellen Betreiber sowie bei Bedarf `SYSTEM`/lokale Administratoren. Das Werkzeug prüft Eigentümer und Allow-ACEs anhand von SIDs; `chmod` ersetzt keine Windows-ACL. Bei übertragenen Backups Eigentümer/ACLs rekursiv auf dem Zielrechner prüfen. Die nativen Windows-ACL-Pfade müssen dort nochmals verifiziert werden; die lokale Docker-Abnahme läuft auf macOS.
+Windows: dediziertes Verzeichnis mit deaktivierter Vererbung und Zugriff nur für den aktuellen Betreiber sowie bei Bedarf `SYSTEM`/lokale Administratoren. Das Werkzeug prüft Eigentümer und Allow-ACEs anhand von SIDs; `chmod` ersetzt keine Windows-ACL. Bei übertragenen Backups Eigentümer/ACLs rekursiv auf dem Zielrechner prüfen. Die ursprüngliche Backup-CLI-Abnahme unten bezog sich auf macOS-Docker und ersetzte keine Windows-ACL-Prüfung. Aktuelle Windows-Release-/CI-Nachweise stehen separat in [VERIFICATION.md](../VERIFICATION.md); private Backup-ACLs und Restore des jeweiligen Unterrichtsbestands trotzdem auf dem Zielhost prüfen.
 
 ## Backup-CLI: bestätigter lokaler Docker-Endpunkt
 
@@ -163,9 +165,9 @@ docker --context $Context compose @ComposeArgs up -d --no-deps --no-build --pull
 
 ## Startprompt für das Hermes auf dem Windows-Rechner
 
-> Aktualisiere `igathedub/pod-racing-classroom` anhand von `deploy/RESTORE.md` auf den neuesten `main`. Dieser Rechner ist der **bestehende Windows-Primärserver** für `https://codeweek-wi.de/`, nicht die Mac-Reserve. Prüfe zuerst Git-Status, tatsächlich laufende Images, den lokalen Docker-Kontext/Endpunkt, Compose-Projekt, Datenvolume, bestehende private Konfiguration und Unterrichts-/Jobstatus. Bewahre sämtliche Abgaben, Replays, Zugänge, Sitzungen und Windows-Tunnel-Zuordnung. Keine Secrets im Chat/Git, kein Reset/Pruning und kein neues leeres Volume. Quellcode mit Fast-forward aktualisieren und Tests ausführen; das ist noch kein Container-Deployment. Vor einem geplanten Deployment ein geprüftes privates Backup inkl. Operator-/Tunnel-Secrets und einen isolierten Restore-Nachweis erstellen. Neue rollengetrennte Images bauen, im ruhigen Wartungsfenster mit unverändertem Projekt/Volume/Secrets aktualisieren und Zugangsschutz, Datenzahlen sowie Rollback prüfen. Bei aktivem Unterricht/Job keine Container neu starten. Berichte Quell-SHA, laufende Imageversion, Prüfungen und konkrete Blocker getrennt.
+> Prüfe `igathedub/pod-racing-classroom` anhand von `deploy/RESTORE.md` und verwende ausschließlich den separat freigegebenen exakten Ziel-SHA, nicht ungefragt den neuesten `main`. Dieser Rechner ist der **bestehende Windows-Primärserver** für `https://codeweek-wi.de/`, nicht die Mac-Reserve. Prüfe zuerst Git-Status, tatsächlich laufende Images, den lokalen Docker-Kontext/Endpunkt, Compose-Projekt, Datenvolume, bestehende private Konfiguration und Unterrichts-/Jobstatus. Bewahre sämtliche Abgaben, Replays, Zugänge, Sitzungen und Windows-Tunnel-Zuordnung. Keine Secrets im Chat/Git, kein Reset/Pruning und kein neues leeres Volume. Quellcode mit Fast-forward aktualisieren und Tests ausführen; das ist noch kein Container-Deployment. Vor einem geplanten Deployment ein geprüftes privates Backup inkl. Operator-/Tunnel-Secrets und einen isolierten Restore-Nachweis erstellen. Neue rollengetrennte Images bauen, im ruhigen Wartungsfenster mit unverändertem Projekt/Volume/Secrets aktualisieren und Zugangsschutz, Datenzahlen sowie Rollback prüfen. Bei aktivem Unterricht/Job keine Container neu starten. Berichte Quell-SHA, laufende Imageversion, Prüfungen und konkrete Blocker getrennt.
 
-## Tatsächlich belegte Prüfungen
+## Historischer Nachweis: ursprüngliche Backup-CLI-Abnahme
 
 PR #8 veröffentlichte die Vorlagen und Basis-Pfad-Unterstützung; seine ursprünglichen 14 Backup-Tests mockten den Docker-Transport. Die nachfolgende CLI-Korrektur ergänzt echte Prozessprüfungen und opt-in Docker-Abnahmetests (`tests/test_backup_docker_acceptance.py`) mit ausschließlich synthetischen Daten für Root **und** `/backup`. Die Tests benötigen explizite `POD_BACKUP_ACCEPTANCE_CONTEXT`, `POD_BACKUP_ACCEPTANCE_ENDPOINT` und `POD_BACKUP_ACCEPTANCE_IMAGE`.
 

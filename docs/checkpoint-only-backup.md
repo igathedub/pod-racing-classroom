@@ -1,5 +1,7 @@
 # Backup-Test: eine Eingabezeile pro Spielzug
 
+> **Historischer Quellcode-/Backup-Rolloutkontext.** Keine Installationsanleitung für das stabile Runtime-ZIP und kein Nachweis des heutigen Produktionsstands. Aktueller Einstieg: [README.de.md](../README.de.md); Release-/Plattformnachweise: [VERIFICATION.md](../VERIFICATION.md). Vorhandene Protokolle und Daten nicht durch eine Neuinstallation ersetzen.
+
 ## Rollout nach Backup-Freigabe
 
 Der Einzeilenmodus wurde zunächst ausschließlich auf der Mac-Reserve getestet und anschließend vom Betreiber für den Primär-Rollout freigegeben. Diese Freigabe und ein Git-Merge aktualisieren den Windows-Container **nicht automatisch**. Ablauf und Windows-Übergabe stehen in [`deploy/ROLLOUT.md`](../deploy/ROLLOUT.md).

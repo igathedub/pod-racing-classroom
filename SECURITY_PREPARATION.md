@@ -1,18 +1,20 @@
-# Vorbereitung einer kontrollierten Internetfreigabe
+# Sicherheitsvorbereitung für Betreiber (kein Deploymentnachweis)
 
 Diese Maßnahmen sind **Basisschutz, keine Freigabe für ungeschütztes Internet-Hosting**. Die Anwendung kann Code ausführen und verwaltet eine Docker-Engine. Vor Schülerzugriff müssen der optionale Klassenzugang und getrennte Lehrkräfte-Authentifizierung aktiviert/geprüft werden; Edge-Missbrauchsschutz und eine unabhängig geprüfte Ausführungsisolation bleiben nötig.
 
-## Optionaler Klassenzugang umgesetzt, externe Freigabe weiter offen
+> **Geltungsbereich:** Ergänzende Betreiber-Checkliste für ausdrücklich genehmigte Quellcode-/Tunnelinstallationen, nicht der normale [v1.0.0-ZIP-Start](README.de.md). Keine Aussage über den aktuell laufenden Produktionsstand. Verbindliche Sicherheitsgrenzen: [SECURITY.md](SECURITY.md); Release-Nachweise und Lücken: [VERIFICATION.md](VERIFICATION.md). Vorhandene private Konfiguration nicht durch Beispiele überschreiben.
 
-[README.de.md](README.de.md#optionaler-zeitlich-begrenzter-klassenzugang) beschreibt
-`POD_CLASS_ACCESS_REQUIRED=1`, Einladungscodes, maximal 60 persistierte Sitzungen,
+## Optionaler Klassenzugang, keine anonyme Internetfreigabe
+
+[Quellcode-/LAN-Anleitung](docs/source-installation.md#lan-and-docker-configuration--lan-und-docker) beschreibt
+`POD_CLASS_ACCESS_REQUIRED=1`, Einladungscodes, maximal 100 persistierte Teilnahmesitzungen (einschließlich Beamer-Browsern),
 sofortigen Widerruf und individuelle Budgets. Standardmäßig bleibt der Schutz
 für abwärtskompatiblen privaten Betrieb aus. Die API-Prüfungen ersetzen weder
 Cloudflare Access noch Edge-DoS-Schutz oder Ausführungsisolation. Ein anonym
 öffentlicher Betrieb wird damit ausdrücklich nicht als bereit erklärt.
 Container-Healthchecks lesen ausschließlich `/api/health`, keine Kursdaten.
 Einladungscodes bleiben aus Startup-Logs und öffentlichen Antworten heraus;
-die bereits bestehenden Teacher-Token-Startup-Logs bleiben vertraulich.
+Teacher-Token-App-Logs bleiben vertraulich. Beim ZIP speichert Start sie mit Eigentümerrechten in `teacher-private.log`, ohne den Schlüssel auf die Starter-Konsole zu schreiben.
 
 ## Vorbereitet
 
@@ -38,7 +40,7 @@ POD_PRACTICE_PER_MINUTE=60
 
 Soll der bisherige Tailscale-Zugriff erhalten bleiben, zusätzlich die **tatsächliche** Tailscale-IP und den verwendeten MagicDNS-Host zu `POD_ALLOWED_HOSTS` ergänzen. Bei mehreren erlaubten öffentlichen Origins kommagetrennte vollständige HTTP(S)-Origins ohne Pfad eintragen. `www` erst hinzufügen, wenn es bewusst eingerichtet wurde. Die Liste muss `127.0.0.1` für den Container-Healthcheck erlauben.
 
-Compose reicht diese HTTP-Einstellungen und die optionalen Zugangseinstellungen aus README.de.md an den Anwendungscontainer weiter. Ein `.env`-Edit allein ändert keinen bereits laufenden Container. Neu erstellen erst nach Backup, abgeschlossenen Turnieraufträgen und geprüftem Rückfallweg:
+Compose reicht diese HTTP-Einstellungen und die optionalen Zugangseinstellungen aus der Quellcode-/LAN-Anleitung an den Anwendungscontainer weiter. Ein `.env`-Edit allein ändert keinen bereits laufenden Container. Neu erstellen erst nach Backup, abgeschlossenen Turnieraufträgen und geprüftem Rückfallweg:
 
 ```text
 docker compose up --build -d
@@ -46,13 +48,13 @@ docker compose up --build -d
 
 `POD_BIND` und `POD_PORT` dabei nicht unbeabsichtigt verändern. Für einen hostseitigen cloudflared-Connector die tatsächlich erreichbare interne Bind-Adresse als Tunnelziel verwenden; nicht blind localhost einsetzen. Browser-HTTPS darf intern auf HTTP weitergeleitet werden: die explizite öffentliche Origin erlaubt diese Zuordnung, ohne untrusted Proxy-Header zur Autorisierung zu verwenden.
 
-## Freigabereihenfolge
+## Beispiel einer separat zu genehmigenden Freigabereihenfolge
 
 1. Mail-DNS sichern/übernehmen; Domainaktivierung und HTTPS prüfen.
 2. Cloudflare Access **für den gesamten Hostnamen** einrichten, zunächst nur für die erlaubte Lehrkräfte-E-Mail. Keine Everyone-/Bypass-Policy.
 3. Origin-/Access-JWT-Prüfung und direkte Origin-Erreichbarkeit passend absichern.
 4. Erst dann die Tunnel-Route veröffentlichen; extern ohne Tailscale und ohne Login muss Zugriff verweigert werden.
-5. Admin-Token kontrolliert erneuern. Er liegt in SQLite; `POD_ADMIN_TOKEN` gilt nur beim ersten Anlegen und ersetzt keinen bestehenden Token. Sicherung/Datenvolumen niemals zum Rotieren löschen.
+5. Falls separat freigegeben, Admin-Token kontrolliert erneuern; normale Updates erhalten ihn unverändert. Er liegt in SQLite; `POD_ADMIN_TOKEN` gilt nur beim ersten Anlegen und ersetzt keinen bestehenden Token. Sicherung/Datenvolumen niemals zum Rotieren löschen.
 6. Den optionalen Klassenzugang ausdrücklich aktivieren und prüfen; Teilnehmerbudgets und getrennte Adminauthentifizierung ersetzen keine geprüfte isolierte Ausführungsumgebung. Schülerzugriff erst nach unabhängiger Freigabe öffnen.
 
 Sitzungen, Quellcode und Tokens nicht veröffentlichen. Die derzeitigen Startup-Logs enthalten den Teacher-Token und müssen privat bleiben. CSP-Frame-Schutz bedeutet, dass fremde Websites die Anwendung nicht einbetten können; reguläre Browseransichten und Projektor-Vollbild bleiben möglich. HSTS/HTTPS-Weiterleitung zunächst an der geprüften Cloudflare-HTTPS-Schicht konfigurieren, nicht anhand beliebiger Client-Proxy-Header.

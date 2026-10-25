@@ -56,6 +56,8 @@ Submission-duration controls (whole minutes, 1–1440), invitation expiry, store
 
 ## Verification scope
 
+This section describes the test fixtures, not all release acceptance. For stable v1.0.0 publication, actual Docker checks, hosted CI and remaining hardware gaps, see [VERIFICATION.md](../VERIFICATION.md).
+
 `tests/test_three_track_final_ui.py` uses **real headless Chromium** through the existing `moderation_browser` fixture. Its FastAPI app, SQLite Store and replay archives are disposable synthetic fixtures. It checks both languages and student/projector/teacher views, fractional totals, differing overall/last-race winners, first/second/stale replay hiding, failed/incomplete work, no champion, keyboard/mobile behavior, and unchanged submitted-source/archive bytes. `tests/test_three_track_locale.py` checks request-local translations, optional historical fields and exact message/track/rule copy without requiring a worker or bot execution. Existing collision-free and submission-time browser suites cover legacy contact/single-final behavior and timer controls.
 
 Example targeted development command:

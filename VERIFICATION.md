@@ -1,69 +1,65 @@
-# Verified release results
+# Current verification: v1.0.0
 
-> **Historical verification only:** the original release and bilingual/portable runs below predate collision-free racing. In particular, their collision-enabled finals are not evidence for the collision-free release. These recorded results are retained as history, not rerun or relabeled as new proof. Existing competition archives must not be changed.
+This page separates published release evidence, recorded isolated acceptance and remaining platform gaps. It does **not** certify a live website deployment. The normal installation route is the [English](README.md) / [German](README.de.md) Docker-first quickstart.
 
-## Collision-free UI and rules checks
+## Published stable release
 
-`tests/test_collision_free_ui.py` and `tests/test_collision_free_rules.py` use synthetic data in disposable databases. Chromium checks final-kind/ID-based champion reveal only at playback end (including old contact finals), no reveal from qualification wins, unchanged archive bytes and submission records, and EN/DE instructions in both input protocols. The API rules checks preserve protocol/BOOST/SHIELD compatibility. These are not Docker race or deployment acceptance results; engine/tournament verification is separate.
+- [v1.0.0](https://github.com/igathedub/pod-racing-classroom/releases/tag/v1.0.0) was published on **2026-10-24**, from **`691ec3939c4be2d90526a9242997e88835024dd7`**. [Release workflow 40077847212](https://github.com/igathedub/pod-racing-classroom/actions/runs/40077847212) succeeded at that SHA.
+- Runtime asset: [Pod-Racing-Classroom-v1.0.0.zip](https://github.com/igathedub/pod-racing-classroom/releases/download/v1.0.0/Pod-Racing-Classroom-v1.0.0.zip), **13 files**, pull-only Compose and Start/Stop launchers; no local source build. [SHA256SUMS](https://github.com/igathedub/pod-racing-classroom/releases/download/v1.0.0/SHA256SUMS) records ZIP SHA-256 **`a3309a21150e6c50b0c07605ed87b9dbedd2dfc0fe81cb91f3a7d0bfbc535c6e`**. Anonymous ZIP/checksum downloads were checked during release acceptance.
+- The earlier **`v1.0.0-preview.1`** is historical and source-only, not the stable runtime installer. GitHub's automatic source archives are also not the runtime ZIP.
 
-## Original release verification
+After downloading the ZIP and `SHA256SUMS` into the same folder, calculate the ZIP's hash and compare the full value with the published checksum. These commands require no Python/Node/Git:
 
-### Automated suite
+```powershell
+# Windows PowerShell
+Get-FileHash .\Pod-Racing-Classroom-v1.0.0.zip -Algorithm SHA256
+```
 
-Executed the complete project test suite against the running Docker Desktop and built sandbox image:
+```sh
+# macOS
+shasum -a 256 Pod-Racing-Classroom-v1.0.0.zip
+# Linux: checks the filename and hash recorded in SHA256SUMS
+sha256sum -c SHA256SUMS
+```
+
+The ZIP pins these immutable **multi-architecture index digests**, not mutable `latest` references:
 
 ```text
-116 passed, 1 warning in 26.42s
+ghcr.io/igathedub/pod-racing-classroom-app@sha256:1eba5ac39786c4ebdcf3243aa9a410b0623643eaab2253352861dedb3b8edd73
+ghcr.io/igathedub/pod-racing-classroom-bot@sha256:bea033350d14435f20bee9260a38e0329dd16ed8ddd2bff887a6ade07c1e0e07
 ```
 
-The sole warning is upstream Starlette/httpx TestClient deprecation. Ruff returned `All checks passed!`; `node --check web/app.js` exited successfully.
+Both images were anonymously pulled and executed as **Linux AMD64** during the public release gate. AMD64/ARM64 image configuration metadata was checked for release version/revision; a manifest/config inspection is **not ARM64 execution**.
 
-Coverage includes deterministic physics, checkpoint crossings/collisions, BOOST/SHIELD, bot startup/turn deadlines, output floods, real container restrictions and cleanup, submission syntax/size/ownership, teacher authorization, deadline expiry, immutable snapshots, job/reset locking, restart recovery, top-five selection and public secret/source exclusion. Public sandbox status is cached briefly to avoid one Docker probe per student poll; job preflight bypasses that cache.
+## Hosted CI at the stable source SHA
 
-## Real API acceptance test
+[Main CI run 40019645128](https://github.com/igathedub/pod-racing-classroom/actions/runs/40019645128) succeeded on **2026-10-23** at `691ec3939c4be2d90526a9242997e88835024dd7`:
 
-`scripts/smoke_tournament.py` used a disposable database and genuinely executed six valid Python input-loop submissions plus one deliberately crashing submission inside Docker. All 21 qualification races ran; the crashing program was excluded from the five finalists. The five-pod collision-enabled final completed with 216 replay frames and an actual finishing winner. Syntax validation, alias ownership, late-submission rejection and public secret exclusion were checked. No fabricated race data was substituted.
+| Job | Evidence scope |
+|---|---|
+| Unit and Chromium: Ubuntu, Windows, macOS | Source tests, browser/UI behavior, distribution checks; not a native Docker classroom acceptance on each desktop OS |
+| Native Linux Docker: AMD64 and ARM64 | Images **built from source** on native runners, distribution and real bot-isolation tests; not execution of the subsequently published ARM64 registry image |
 
-## Real browser acceptance test
+The [isolated Windows PR run 40017512575](https://github.com/igathedub/pod-racing-classroom/actions/runs/40017512575) also passed before PR #19 merged. Earlier Windows CI failures are historical diagnostics, **not a current release blocker**; use the SHA-linked successful run above rather than treating earlier red runs as today's status. CI does not authorize deployment or prove target-school network access.
 
-`scripts/browser_smoke.py` used installed Edge via Playwright and a disposable database. Latest successful run:
+## Recorded isolated release acceptance
 
-```json
-{
-  "passed": true,
-  "elapsed_seconds": 23.3,
-  "students": 6,
-  "finalists": 5,
-  "champion": "Browser Pilot 5",
-  "final_frames": 224,
-  "page_errors": [],
-  "console_errors": [],
-  "restart_persistence": true
-}
-```
+The release acceptance report records the following **real Docker** checks, using synthetic data and isolated test projects. They are not fabricated fixtures and are not new runs performed merely by editing this documentation:
 
-This exercised real website submission, syntax-error display, replacement after reload, teacher session start, UI-triggered qualification/final, animated projector replay, winner overlay and 390px layouts without horizontal overflow. It verified that the winner is not announced in the replay selector/footer before playback finishes. The server was then stopped and restarted; champion, leaderboard and exact replay remained intact.
+- Windows `Start.cmd` / `Stop.cmd`: six demo bots, **18 qualification races and three final races**, **21 replay archives**. Aggregate scores and the overall champion were reconstructed from actual race results. Restart preserved classroom data, the teacher key and access.
+- Private practice left global competition state, database and archives unchanged; unauthorized ownership claims were rejected.
+- Rendered student, teacher and projector views in **English and German** were exercised. Associated live sandbox children were checked for the restricted execution boundary, not inferred merely from Compose text. Synthetic resources were cleaned up.
 
-Screenshots were inspected directly. The revised camera includes all five drifting pods and readable labels. Additional agent browser checks covered file upload, code inspection, seed/reset/close, fullscreen, keyboard controls, 320/768px layouts and alias XSS protection.
+These checks concern the collision-free, three-track release. [Three-track contract](docs/three-track-final.md), [collision-free rules](docs/collision-free-racing.md) and [media provenance](docs/media/README.md) describe their separate fixture/capture scopes. Earlier captures at `804ac8804dff8b29d0e1ccc4364bd29d0b46fdf2` are not a claim that the ZIP itself was captured.
 
-These short demo runs are not a throughput guarantee for a full class or expensive student algorithms. Preflight the expected class size on the actual classroom network.
+## Limits and target-machine preflight
 
-## Running classroom
+- **Not verified:** native Mac Docker execution, execution of the published ARM64 images, a fresh full classroom deployment on every supported OS, or school Wi-Fi/firewall access from another device. macOS source/browser CI and native ARM source CI do not fill those gaps.
+- Run the six-bot demo in a **new empty installation** on the target hardware before teaching. Localhost URLs work only on the host; trusted-LAN exposure requires explicit source configuration and a second-device check.
+- [Reported 100-client workload measurements](docs/performance.md) are not smooth 100-browser playback, fixed lesson duration or anonymous public-hosting capacity.
+- No current `codeweek-wi.de` production revision is established by this page. A release, merge or successful CI is **not** a live deployment. Existing operators must independently verify their approved target, data, access and rollback using [rollout](deploy/ROLLOUT.md) and [restore](deploy/RESTORE.md) guidance.
+- No test or documentation change relaxes [SECURITY.md](SECURITY.md): untrusted bots run only in Docker; the trusted app's Docker socket is host-admin-equivalent access. Public source is not permission for anonymous internet code execution.
 
-At initial startup the application was read back on localhost and the host's LAN address, port 8765. Student, teacher and projector routes returned HTTP200. The classroom was deliberately empty and waiting, with a two-hour default, no test submissions/results, an idle worker and a ready restricted Docker sandbox. No `pod-bot-*` containers remained after acceptance runs.
+## Historical results
 
-Cross-device access through school Wi-Fi and Windows Firewall still needs a check from a student's device. No firewall or router rules were changed automatically.
-
-## Bilingual and portable update
-
-- Complete suite: **129 passed, 1 upstream deprecation warning in 26.42s**. Ruff and both JavaScript syntax checks passed. Compose configuration validation passed.
-- English/German Edge-browser acceptance passed on an isolated HTTP server. Tested saved language, `?lang=de/en` links, translated syntax errors, controls, instructions, starter comments and server rules. Code/aliases, private keys and replay selection/pause/position/speed remained unchanged. The reference-engine playback tests used predefined trusted policies, not host execution of submitted code. Desktop and 320/390px screenshots were inspected, with no page errors or horizontal overflow.
-- The full real-Docker website submission/qualification/final browser test passed again: six entries, five finalists, 224 final frames, no page/console errors and persistent results after restart.
-- A fresh authenticated checkout from the private GitHub repository had no host virtualenv, local database or copied keys. Its Docker Compose installation built successfully and ran six-entry qualification and a simultaneous five-pod final, with 216 final frames. Runtime had no uv, Node/npm, pytest, Playwright or Ruff installed. Teacher key, submissions, winner and exact replay survived restart and forced container recreation. Both launch helpers worked. The isolated test completed in 54.31 seconds and removed only its own containers/volume.
-- Exact inspected student containers had no network, host/socket mounts or root privileges; read-only filesystem, dropped capabilities and 64 MiB/half-CPU/32-process limits were enforced. Starting the app without its trusted Docker socket failed closed.
-- The private repository's visibility and main commit were read back through GitHub. The staged-source audit verified that classroom databases, live teacher key and all current ownership tokens were excluded. Source archives also exclude private/generated data.
-- The existing native classroom was updated only after its tournament was idle. Cryptographic before/after checks verified all four existing submissions, the teacher key, stored session/deadline, configuration and every saved replay were preserved. German API and the language switch were read back after reload.
-
-The visible name is now **Coding session / Programmierphase**, with the original 7200-second default retained. A new computer creates its own empty database and teacher key; cloning does not copy the current competition. Docker Compose defaults to localhost, with explicit trusted-LAN configuration documented in English and German.
-
-Portability was exercised as a Linux AMD64 app container on Windows Docker Desktop, not on a second physical computer. Registry images are multi-architecture; macOS, native Linux, ARM64 and rootless hardware were not directly tested. Preflight the demo on the target computer and verify access from a student device.
+**Historical verification only:** [original release and bilingual/portable results](docs/history/original-verification.md) retain their original context. Their collision-enabled finals are **not evidence for the collision-free release**. Old suite counts, original single-final benchmarks, native-host statements and formerly private-repository checks must not be relabeled as v1.0.0 proof. Existing competition archives remain unchanged.
